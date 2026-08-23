@@ -41,11 +41,14 @@
         /* ---------------- ផ្ទៃអាន (Reader View) ---------------- */
         #reader-view { width: 100%; height: 100%; display: none; flex-direction: row; position: relative;}
         
-        #sidebar { width: 270px; background: white; padding: 15px 12px; box-shadow: 2px 0 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 8px; overflow-y: auto; z-index: 10000; }
+        #sidebar { width: 270px; background: white; padding: 15px 12px; box-shadow: 2px 0 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 8px; overflow-y: auto; z-index: 10000; position: relative;}
         #sidebar::-webkit-scrollbar { width: 6px; }
         #sidebar::-webkit-scrollbar-thumb { background: #007bff; border-radius: 4px; }
         
-        .section-title { font-weight: bold; border-bottom: 1.5px solid #007bff; padding-bottom: 4px; font-size: 14px; color: #333; margin-top: 2px;}
+        /* ប៊ូតុងបិទ Sidebar ទូរស័ព្ទ */
+        #close-sidebar-btn { display: none; background: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer; align-self: flex-end; margin-bottom: -15px; z-index: 10;}
+        
+        .section-title { font-weight: bold; border-bottom: 1.5px solid #007bff; padding-bottom: 4px; font-size: 14px; color: #333; margin-top: 10px;}
         .pagination-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px;}
         .pagination-row button { padding: 4px 10px; font-size: 13px; cursor: pointer; border: 1px solid #ccc; background: white; border-radius: 4px;}
         .pagination-row input { width: 45px; text-align: center; font-size: 13px; padding: 4px; font-family: inherit;}
@@ -66,7 +69,9 @@
         
         .btn-home { background: #333; color: white; padding: 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-bottom: 2px; font-family: inherit;}
         .btn-save { background: #007bff; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-top: 15px; font-family: inherit;}
-        .btn-export { background: #dc3545; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px; font-family: inherit;}
+        
+        /* Update Export Button Color to look like Share */
+        .btn-export { background: #28a745; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px; font-family: inherit;}
         
         /* Mobile Top Nav */
         #mobile-nav { display: none; background: white; padding: 10px 15px; border-bottom: 2px solid #007bff; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 50;}
@@ -122,6 +127,7 @@
             .library-header { flex-direction: column; gap: 10px; text-align: center; }
             #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; transition: left 0.3s ease; width: 260px;}
             #sidebar.open { left: 0; }
+            #close-sidebar-btn { display: block; }
             #mobile-nav { display: flex; }
             #main-content { padding: 10px; }
             #ai-popup { position: fixed; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%); }
@@ -152,6 +158,7 @@
     <div id="reader-view">
         <div id="sidebar-overlay"></div>
         <div id="sidebar">
+            <button id="close-sidebar-btn">❌ បិទ</button>
             <div class="app-title">✨ E-Notebook by CL</div>
             <button class="lang-btn" id="lang-toggle-sidebar" style="margin-bottom: 8px;">🌐 ខ្មែរ / EN</button>
             <button class="btn-home" id="btn-back-home" data-i18n="btn_back">🏠 ត្រឡប់ទៅបណ្ណាល័យ</button>
@@ -199,7 +206,7 @@
             </div>
 
             <button class="btn-save" id="save-db-btn" data-i18n="btn_save">💾 រក្សាទុក (Save)</button>
-            <button class="btn-export" id="export-pdf-btn" data-i18n="btn_export">📥 ទាញយកជា PDF</button>
+            <button class="btn-export" id="export-pdf-btn" data-i18n="btn_export">📤 ទាញយក / Share (ចែករំលែក)</button>
         </div>
 
         <div id="reader-body">
@@ -252,10 +259,10 @@
         // ------------------ I18N វចនានុក្រមបកប្រែ ------------------
         const translations = {
             "km": {
-                "lib_title": "📚 បណ្ណាល័យសៀវភៅ", "lib_hint": "(អាចទម្លាក់ឯកសារ PDF ឬ រូបភាព JPG/PNG ចូលទីនេះបាន)", "add_doc": "បញ្ចូលឯកសារ PDF ឬ រូបភាព (ទូរស័ព្ទ / កុំព្យូទ័រ)", "btn_back": "🏠 ត្រឡប់ទៅបណ្ណាល័យ", "zoom_title": "🔍 Zoom & ទំព័រ", "zoom_hint": "(អាចចុច Ctrl + Scroll ដើម្បី Zoom 🔄)", "tools_title": "🛠 ឧបករណ៍គូសវាស", "btn_undo": "↩️ ថយក្រោយ", "btn_redo": "រុញមុខ ↪️", "tool_cursor": "🖱 ជ្រើសអក្សរ", "tool_pencil": "✏️ ខ្មៅដៃ", "tool_hl": "🖍 ហាយឡាយ", "tool_line": "📏 បន្ទាត់", "tool_rect": "⬜ ចតុកោណ", "tool_circle": "⭕ រង្វង់", "tool_eraser": "🧽 ជ័រលុប", "tool_ocr": "📸 ស្កេនអក្សរ (AI OCR)", "color_label": "🎨 ជ្រើសពណ៌:", "width_label": "កម្រាស់:", "opacity_label": "ភាពច្បាស់ (Opacity):", "btn_save": "💾 រក្សាទុក (Save)", "btn_export": "📥 ទាញយកជា PDF", "mobile_menu": "☰ ឧបករណ៍ (Tools)", "popup_drag": "≡ អូសទីនេះ (Drag) ≡", "ask_ai": "🤖 សួរ AI (Gemini)", "add_note": "➕ ភ្ជាប់ Note ទីនេះ", "translate_to": "បកប្រែទៅជា:", "read_page": "អានដល់ទំព័រទី", "modal_title": "ឯកសារមិនទាន់រក្សាទុក!", "modal_desc": "តើអ្នកចង់រក្សាទុកការកែប្រែមុននឹងចាកចេញទេ?", "modal_cancel": "បោះបង់", "modal_no": "ទេ (No)", "modal_yes": "រក្សាទុក (Save)"
+                "lib_title": "📚 បណ្ណាល័យសៀវភៅ", "lib_hint": "(អាចទម្លាក់ឯកសារ PDF ឬ រូបភាព JPG/PNG ចូលទីនេះបាន)", "add_doc": "បញ្ចូលឯកសារ PDF ឬ រូបភាព (ទូរស័ព្ទ / កុំព្យូទ័រ)", "btn_back": "🏠 ត្រឡប់ទៅបណ្ណាល័យ", "zoom_title": "🔍 Zoom & ទំព័រ", "zoom_hint": "(អាចចុច Ctrl + Scroll ដើម្បី Zoom 🔄)", "tools_title": "🛠 ឧបករណ៍គូសវាស", "btn_undo": "↩️ ថយក្រោយ", "btn_redo": "រុញមុខ ↪️", "tool_cursor": "🖱 ជ្រើសអក្សរ", "tool_pencil": "✏️ ខ្មៅដៃ", "tool_hl": "🖍 ហាយឡាយ", "tool_line": "📏 បន្ទាត់", "tool_rect": "⬜ ចតុកោណ", "tool_circle": "⭕ រង្វង់", "tool_eraser": "🧽 ជ័រលុប", "tool_ocr": "📸 ស្កេនអក្សរ (AI OCR)", "color_label": "🎨 ជ្រើសពណ៌:", "width_label": "កម្រាស់:", "opacity_label": "ភាពច្បាស់ (Opacity):", "btn_save": "💾 រក្សាទុក (Save)", "btn_export": "📤 ទាញយក / Share (ចែករំលែក)", "mobile_menu": "☰ ឧបករណ៍ (Tools)", "popup_drag": "≡ អូសទីនេះ (Drag) ≡", "ask_ai": "🤖 សួរ AI (Gemini)", "add_note": "➕ ភ្ជាប់ Note ទីនេះ", "translate_to": "បកប្រែទៅជា:", "read_page": "អានដល់ទំព័រទី", "modal_title": "ឯកសារមិនទាន់រក្សាទុក!", "modal_desc": "តើអ្នកចង់រក្សាទុកការកែប្រែមុននឹងចាកចេញទេ?", "modal_cancel": "បោះបង់", "modal_no": "ទេ (No)", "modal_yes": "រក្សាទុក (Save)"
             },
             "en": {
-                "lib_title": "📚 Book Library", "lib_hint": "(Drag and drop PDF or JPG/PNG image here)", "add_doc": "Upload PDF or Image (Mobile/PC)", "btn_back": "🏠 Back to Library", "zoom_title": "🔍 Zoom & Page", "zoom_hint": "(Ctrl + Scroll to Zoom 🔄)", "tools_title": "🛠 Drawing Tools", "btn_undo": "↩️ Undo", "btn_redo": "Redo ↪️", "tool_cursor": "🖱 Cursor", "tool_pencil": "✏️ Pencil", "tool_hl": "🖍 Highlighter", "tool_line": "📏 Line", "tool_rect": "⬜ Rectangle", "tool_circle": "⭕ Circle", "tool_eraser": "🧽 Eraser", "tool_ocr": "📸 Scan Text (AI OCR)", "color_label": "🎨 Color:", "width_label": "Width:", "opacity_label": "Opacity:", "btn_save": "💾 Save Progress", "btn_export": "📥 Export as PDF", "mobile_menu": "☰ Menu Tools", "popup_drag": "≡ Drag Here ≡", "ask_ai": "🤖 Ask AI (Gemini)", "add_note": "➕ Attach Note Here", "translate_to": "Translate to:", "read_page": "Read to page", "modal_title": "Unsaved Changes!", "modal_desc": "Do you want to save changes before leaving?", "modal_cancel": "Cancel", "modal_no": "No", "modal_yes": "Save"
+                "lib_title": "📚 Book Library", "lib_hint": "(Drag and drop PDF or JPG/PNG image here)", "add_doc": "Upload PDF or Image (Mobile/PC)", "btn_back": "🏠 Back to Library", "zoom_title": "🔍 Zoom & Page", "zoom_hint": "(Ctrl + Scroll to Zoom 🔄)", "tools_title": "🛠 Drawing Tools", "btn_undo": "↩️ Undo", "btn_redo": "Redo ↪️", "tool_cursor": "🖱 Cursor", "tool_pencil": "✏️ Pencil", "tool_hl": "🖍 Highlighter", "tool_line": "📏 Line", "tool_rect": "⬜ Rectangle", "tool_circle": "⭕ Circle", "tool_eraser": "🧽 Eraser", "tool_ocr": "📸 Scan Text (AI OCR)", "color_label": "🎨 Color:", "width_label": "Width:", "opacity_label": "Opacity:", "btn_save": "💾 Save Progress", "btn_export": "📤 Download / Share", "mobile_menu": "☰ Menu Tools", "popup_drag": "≡ Drag Here ≡", "ask_ai": "🤖 Ask AI (Gemini)", "add_note": "➕ Attach Note Here", "translate_to": "Translate to:", "read_page": "Read to page", "modal_title": "Unsaved Changes!", "modal_desc": "Do you want to save changes before leaving?", "modal_cancel": "Cancel", "modal_no": "No", "modal_yes": "Save"
             }
         };
 
@@ -282,11 +289,17 @@
         document.getElementById('lang-toggle-lib').addEventListener('click', toggleLanguage);
         document.getElementById('lang-toggle-sidebar').addEventListener('click', toggleLanguage);
 
-        // Mobile Sidebar Control
+        // Mobile Sidebar Control & Auto-hide
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebar-overlay');
         document.getElementById('mobile-menu-btn').addEventListener('click', () => { sidebar.classList.add('open'); sidebarOverlay.classList.add('open'); });
         sidebarOverlay.addEventListener('click', () => { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); });
+        
+        // មុខងារប៊ូតុងបិទ Sidebar ថ្មី
+        document.getElementById('close-sidebar-btn').addEventListener('click', () => {
+            sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open');
+        });
+
         if(window.innerWidth <= 768) { document.getElementById('close-popup-btn').style.display = 'block'; }
         document.getElementById('close-popup-btn').addEventListener('click', () => document.getElementById('ai-popup').style.display = 'none');
 
@@ -305,7 +318,6 @@
             request.onsuccess = (e) => { db = e.target.result; resolve(); };
         });
 
-        // Event Listener សម្រាប់ភ្ជាប់ការ Upload ម្តងគត់
         document.getElementById('main-pdf-upload').addEventListener('change', handleFileUpload);
 
         const libraryView = document.getElementById('library-view');
@@ -326,13 +338,9 @@
             req.onsuccess = (e) => {
                 const books = e.target.result;
                 const bookList = document.getElementById('book-list');
-                const addText = translations[currentLang]["add_doc"];
                 const readPageTxt = translations[currentLang]["read_page"];
 
-                bookList.innerHTML = `
-                <div class="upload-box" onclick="document.getElementById('main-pdf-upload').click()">
-                    <div class="book-icon">➕</div><p style="font-size:14px; margin-top:10px;">${addText}</p>
-                </div>`;
+                bookList.innerHTML = '';
                 
                 books.forEach(book => {
                     const div = document.createElement('div'); div.className = 'book-card';
@@ -382,7 +390,6 @@
                 }; reader.readAsArrayBuffer(file);
             } else { alert("សូមជ្រើសរើសតែឯកសារ PDF ឬរូបភាព (JPG/PNG) ប៉ុណ្ណោះ!"); }
             
-            // Clear input សម្រាប់អាចជ្រើសរើស File ដដែលម្តងទៀតបាន
             e.target.value = '';
         }
 
@@ -576,6 +583,12 @@
                     wp.drawCanvas.style.pointerEvents = (currentTool !== 'cursor') ? 'auto' : 'none';
                     wp.drawCanvas.style.cursor = getCursorForTool(currentTool);
                 });
+                
+                // លាក់ Sidebar ដោយស្វ័យប្រវត្តិ នៅពេលរើសឧបករណ៍ (សម្រាប់ទូរស័ព្ទ)
+                if(window.innerWidth <= 768) {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.remove('open');
+                }
             });
         });
 
@@ -762,19 +775,23 @@
         pagesContainer.addEventListener('mouseup', handleDrawEnd);
         pagesContainer.addEventListener('touchend', handleDrawEnd);
 
+        // ----------- មុខងារជំនួយការគូរ -----------
         function drawShape(ctx, d) {
-            if (d.tool === 'eraser') return; 
-
-            ctx.globalCompositeOperation = (d.tool === 'highlighter') ? 'multiply' : 'source-over'; 
-            ctx.strokeStyle = d.color || '#000000'; 
-            ctx.globalAlpha = d.opacity || 1.0; 
+            if (d.tool === 'eraser') { 
+                ctx.globalCompositeOperation = 'destination-out'; 
+                ctx.strokeStyle = 'rgba(0,0,0,1)'; 
+            } else { 
+                ctx.globalCompositeOperation = (d.tool === 'highlighter') ? 'multiply' : 'source-over'; 
+                ctx.strokeStyle = d.color || '#000000'; 
+                ctx.globalAlpha = d.opacity || 1.0; 
+            }
             
             const sRatio = currentRenderScale / (d.scale || 1.5);
-            ctx.lineWidth = d.width * sRatio; 
+            ctx.lineWidth = d.width * sRatio * (d.tool === 'eraser' ? 2 : 1); 
             ctx.beginPath(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
             const sp = (val) => val * sRatio;
             
-            if ((d.tool === 'pencil') && d.path && d.path.length > 0) { 
+            if ((d.tool === 'pencil' || d.tool === 'eraser') && d.path && d.path.length > 0) { 
                 ctx.moveTo(sp(d.path[0].x), sp(d.path[0].y)); 
                 for(let i=1; i<d.path.length; i++) ctx.lineTo(sp(d.path[i].x), sp(d.path[i].y)); 
                 ctx.stroke(); 
@@ -970,41 +987,76 @@
             } return canvas.toDataURL('image/png');
         }
 
+        // ----------- បច្ចេកទេស Export & Share ថ្មី -----------
         document.getElementById('export-pdf-btn').addEventListener('click', async function() {
             if (!pdfBytes) return; 
-            this.innerHTML = "កំពុង Export... ⏳";
+            this.innerHTML = "កំពុងរៀបចំ... ⏳";
             try { 
-                const { PDFDocument } = PDFLib; const pdfDocSave = await PDFDocument.load(pdfBytes); const pages = pdfDocSave.getPages();
+                const { PDFDocument } = PDFLib; 
+                const pdfDocSave = await PDFDocument.load(pdfBytes); 
+                const pages = pdfDocSave.getPages();
                 
+                // ១. ប្រមូលផ្តុំគំនូសតាមទំព័រនីមួយៗ
+                const drawingsByPage = {};
                 drawings.forEach(d => {
-                    const pdfPage = pages[d.page - 1]; if(!pdfPage || d.tool === 'eraser') return; 
-                    
-                    const pdfHeight = pdfPage.getSize().height; const scale = d.scale || 1.5; 
-                    const toPdfX = (x) => x / scale; const toPdfY = (y) => pdfHeight - (y / scale);
-                    const thick = d.width / scale; const op = parseFloat(d.opacity);
-                    
-                    const color = hexToRgb(d.color || '#000000'); 
-
-                    if ((d.tool === 'pencil') && d.path && d.path.length > 1) {
-                        for (let i = 1; i < d.path.length; i++) {
-                            pdfPage.drawLine({
-                                start: { x: toPdfX(d.path[i - 1].x), y: toPdfY(d.path[i - 1].y) },
-                                end: { x: toPdfX(d.path[i].x), y: toPdfY(d.path[i].y) },
-                                thickness: thick,
-                                color: color,
-                                opacity: op
-                            });
-                        }
-                    } else if (d.tool === 'highlighter' || d.tool === 'line') {
-                        pdfPage.drawLine({ start: { x: toPdfX(d.startX), y: toPdfY(d.startY) }, end: { x: toPdfX(d.endX), y: toPdfY(d.endY) }, thickness: thick, color: color, opacity: op });
-                    } else if (d.tool === 'rect') {
-                        pdfPage.drawRectangle({ x: toPdfX(d.startX), y: toPdfY(d.startY), width: (d.endX - d.startX) / scale, height: -(d.endY - d.startY) / scale, borderColor: color, borderWidth: thick, borderOpacity: op });
-                    } else if (d.tool === 'circle') {
-                        let rX = Math.abs(d.endX - d.startX)/2/scale, rY = Math.abs(d.endY - d.startY)/2/scale;
-                        pdfPage.drawEllipse({ x: toPdfX(Math.min(d.startX, d.endX)) + rX, y: toPdfY(Math.min(d.startY, d.endY)) - rY, xScale: rX, yScale: rY, borderColor: color, borderWidth: thick, borderOpacity: op });
-                    }
+                    if (!drawingsByPage[d.page]) drawingsByPage[d.page] = [];
+                    drawingsByPage[d.page].push(d);
                 });
 
+                // ២. បម្លែងគំនូសទៅជារូបភាពថ្លា (Transparent PNG Overlay)
+                for (let pNumStr in drawingsByPage) {
+                    const pNum = parseInt(pNumStr);
+                    const pdfPage = pages[pNum - 1];
+                    if (!pdfPage) continue;
+
+                    const pdfWidth = pdfPage.getSize().width;
+                    const pdfHeight = pdfPage.getSize().height;
+
+                    const exportScale = 2; // ដើម្បីឱ្យច្បាស់ពេល Zoom
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = pdfWidth * exportScale;
+                    tempCanvas.height = pdfHeight * exportScale;
+                    const ctx = tempCanvas.getContext('2d');
+
+                    drawingsByPage[pNum].forEach(d => {
+                        if (d.tool === 'eraser') { 
+                            ctx.globalCompositeOperation = 'destination-out'; 
+                            ctx.strokeStyle = 'rgba(0,0,0,1)'; 
+                        } else { 
+                            ctx.globalCompositeOperation = (d.tool === 'highlighter') ? 'multiply' : 'source-over'; 
+                            ctx.strokeStyle = d.color || '#000000'; 
+                            ctx.globalAlpha = d.opacity || 1.0; 
+                        }
+                        
+                        const sRatio = exportScale / (d.scale || 1.5);
+                        ctx.lineWidth = d.width * sRatio * (d.tool === 'eraser' ? 2 : 1); 
+                        ctx.beginPath(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                        const sp = (val) => val * sRatio;
+                        
+                        if ((d.tool === 'pencil' || d.tool === 'eraser') && d.path && d.path.length > 0) { 
+                            ctx.moveTo(sp(d.path[0].x), sp(d.path[0].y)); 
+                            for(let i=1; i<d.path.length; i++) ctx.lineTo(sp(d.path[i].x), sp(d.path[i].y)); 
+                            ctx.stroke(); 
+                        }
+                        else if (d.tool === 'highlighter' || d.tool === 'line') { ctx.moveTo(sp(d.startX), sp(d.startY)); ctx.lineTo(sp(d.endX), sp(d.endY)); ctx.stroke(); }
+                        else if (d.tool === 'rect') { ctx.strokeRect(sp(d.startX), sp(d.startY), sp(d.endX - d.startX), sp(d.endY - d.startY)); }
+                        else if (d.tool === 'circle') { let rX = Math.abs(sp(d.endX) - sp(d.startX))/2, rY = Math.abs(sp(d.endY) - sp(d.startY))/2; ctx.ellipse(Math.min(sp(d.startX), sp(d.endX))+rX, Math.min(sp(d.startY), sp(d.endY))+rY, rX, rY, 0, 0, 2*Math.PI); ctx.stroke(); }
+                        ctx.globalAlpha = 1.0; ctx.globalCompositeOperation = 'source-over';
+                    });
+
+                    const pngDataUrl = tempCanvas.toDataURL('image/png');
+                    const embeddedPng = await pdfDocSave.embedPng(pngDataUrl);
+                    
+                    // បិទគំនូសពីលើទំព័រ PDF (មិនបិទបាំងអក្សរដើម)
+                    pdfPage.drawImage(embeddedPng, {
+                        x: 0,
+                        y: 0,
+                        width: pdfWidth,
+                        height: pdfHeight
+                    });
+                }
+
+                // ៣. បន្ត Export ប្រអប់ Sticky Note ដដែល
                 for (let i = 0; i < notesData.length; i++) {
                     const n = notesData[i]; const pdfPage = pages[n.page - 1]; if(!pdfPage) continue;
                     const scale = n.scale || 1.5; const pdfHeight = pdfPage.getSize().height;
@@ -1015,11 +1067,40 @@
                     pdfPage.drawImage(embeddedImage, { x: toPdfX(n.x), y: toPdfY(n.y) - (n.height/scale), width: n.width / scale, height: n.height / scale });
                 }
 
-                const pdfBytesNew = await pdfDocSave.save(); const blob = new Blob([pdfBytesNew], { type: "application/pdf" });
-                const link = document.createElement('a'); link.href = URL.createObjectURL(blob); 
-                let baseName = currentBookName.replace(/\.[^/.]+$/, ""); link.download = baseName + "_byocl.pdf"; link.click();
-            } catch (err) { alert("មានបញ្ហាក្នុងការ Export PDF! សូមព្យាយាមម្តងទៀត។"); } 
-            this.innerHTML = "📥 ទាញយកជា PDF (Export)";
+                const pdfBytesNew = await pdfDocSave.save(); 
+                const blob = new Blob([pdfBytesNew], { type: "application/pdf" });
+                let baseName = currentBookName.replace(/\.[^/.]+$/, ""); 
+                let fileName = baseName + "_bycl.pdf";
+
+                // បច្ចេកទេស Web Share API សម្រាប់ទូរស័ព្ទដៃ
+                const fileToShare = new File([blob], fileName, { type: "application/pdf" });
+                
+                if (navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+                    try {
+                        await navigator.share({
+                            title: currentBookName,
+                            text: 'ឯកសារចែករំលែកពី E-Notebook by CL',
+                            files: [fileToShare]
+                        });
+                        // ពេល Share រួច រត់ទៅកាន់ទំព័រដើមវិញ
+                        goBackToLibrary();
+                    } catch (error) {
+                        console.log('Share was cancelled or failed.');
+                        // បើលុបចោលការ Share ក៏ត្រឡប់ទៅផ្ទះវិញដែរ
+                        goBackToLibrary();
+                    }
+                } else {
+                    // ប្រសិនបើកុំព្យូទ័រមិនអាច Share បាន គឺ Download ជាធម្មតា
+                    const link = document.createElement('a'); 
+                    link.href = URL.createObjectURL(blob); 
+                    link.download = fileName; 
+                    link.click();
+                    // Download រួច រត់ទៅកាន់ទំព័រដើម
+                    goBackToLibrary();
+                }
+
+            } catch (err) { alert("មានបញ្ហាក្នុងការ Export PDF! សូមព្យាយាមម្តងទៀត។"); console.error(err); } 
+            this.innerHTML = "📤 ទាញយក / Share (ចែករំលែក)";
         });
     </script>
 </body>
