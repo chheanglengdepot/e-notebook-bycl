@@ -105,7 +105,7 @@
         .lines-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 300; }
         .notes-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 400; }
         
-        /* Sticky Note & Popup CSS (រក្សាដដែល) */
+        /* Sticky Note & Popup CSS */
         .note-box { position: absolute; border: 1px solid #999; box-shadow: 2px 2px 8px rgba(0,0,0,0.2); min-width: 160px; min-height: 110px; display: flex; flex-direction: column; pointer-events: auto; resize: both; overflow: auto; border-radius: 6px; }
         .note-header { height: 28px; cursor: move; display: flex; justify-content: space-between; align-items: center; padding: 0 4px; border-bottom: 1px solid rgba(0,0,0,0.1); background: rgba(0,0,0,0.05);}
         .note-controls { display: flex; gap: 4px; align-items: center; }
@@ -171,7 +171,7 @@
                 
                 <p style="font-size: 13px; color: #555; text-align:center;" data-i18n="lib_hint">(អូសទម្លាក់ឯកសារ ឬអូសសៀវភៅបញ្ចូលក្នុងថត)</p>
                 
-                <div class="upload-box" onclick="document.getElementById('main-pdf-upload').click()">
+                <div class="upload-box" onclick="document.getElementById('main-pdf-upload').click()" ondragover="allowDropUpload(event)" ondrop="handleDropUpload(event)" ondragleave="dragLeaveUpload(event)">
                     <div class="book-icon">➕</div>
                     <p style="font-size:14px; margin-top:10px;" data-i18n="add_doc">បញ្ចូលឯកសារ PDF ឬ រូបភាព (ចូលទីតាំងបច្ចុប្បន្ន)</p>
                 </div>
@@ -314,7 +314,13 @@
         });
 
         // ======================= FOLDER & TOC LOGIC =======================
-        let folders = JSON.parse(localStorage.getItem('enotebook_folders_v2') || '[{"id": "root", "name": "ថតឯកសារទាំងអស់ (All Files)", "parentId": null}]');
+        let folders = [];
+        try {
+            folders = JSON.parse(localStorage.getItem('enotebook_folders_v2'));
+            if (!Array.isArray(folders)) folders = [];
+        } catch (e) {
+            folders = [];
+        }
         let currentFolderId = 'root';
         let folderToDelete = null;
 
@@ -356,19 +362,30 @@
                 const req = store.getAll();
                 req.onsuccess = (e) => {
                     const books = e.target.result;
+                    let hasUpdates = false;
                     books.forEach(b => {
                         if(b.folderId === folderToDelete) {
                             b.folderId = parentId === 'root' ? undefined : parentId;
                             store.put(b);
+                            hasUpdates = true;
                         }
                     });
+                    // Only re-render after all put operations finish, or immediately if none
+                    if (!hasUpdates) {
+                        finalizeDelete();
+                    }
                 };
+                
                 tx.oncomplete = () => {
-                    if(currentFolderId === folderToDelete) currentFolderId = parentId;
-                    folderToDelete = null;
-                    document.getElementById('delete-folder-modal').style.display = 'none';
-                    renderLibraryAndTOC();
+                    finalizeDelete();
                 };
+
+                function finalizeDelete() {
+                     if(currentFolderId === folderToDelete) currentFolderId = parentId;
+                     folderToDelete = null;
+                     document.getElementById('delete-folder-modal').style.display = 'none';
+                     renderLibraryAndTOC();
+                }
             }
         });
 
@@ -386,13 +403,33 @@
             await initDB;
             const tx = db.transaction(["pdfs"], "readwrite");
             const store = tx.objectStore("pdfs");
-            store.get(Number(bookId)).onsuccess = (e) => {
-                let book = e.target.result;
+            store.get(Number(bookId)).onsuccess = (event) => {
+                let book = event.target.result;
                 if(book) {
                     book.folderId = targetFolderId === 'root' ? undefined : targetFolderId;
                     store.put(book).onsuccess = () => renderLibraryAndTOC();
                 }
             };
+        }
+
+        // Drop directly to upload box
+        function allowDropUpload(e) {
+            e.preventDefault();
+            e.currentTarget.style.background = '#dde2e6';
+        }
+
+        function dragLeaveUpload(e) {
+            e.preventDefault();
+            e.currentTarget.style.background = '#e9ecef';
+        }
+
+        function handleDropUpload(e) {
+            e.preventDefault();
+            e.currentTarget.style.background = '#e9ecef';
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                document.getElementById('main-pdf-upload').files = e.dataTransfer.files;
+                handleFileUpload({ target: document.getElementById('main-pdf-upload') });
+            }
         }
 
         // ================== RENDER TOC (TREE VIEW) ==================
@@ -438,11 +475,10 @@
             const tx = db.transaction(["pdfs"], "readonly");
             const req = tx.objectStore("pdfs").getAll();
             req.onsuccess = (e) => {
-                const allBooks = e.target.result;
+                const allBooks = e.target.result || [];
                 const searchTerm = document.getElementById('search-input').value.toLowerCase();
                 
                 // 1. Build TOC Sidebar
-                // បង្កើត Root Folder និម្មិត ដើម្បីឱ្យស្រួល Drop បញ្ចូល Root
                 const rootTOC = `
                     <div class="toc-item ${currentFolderId === 'root' ? 'active' : ''}" onclick="currentFolderId='root'; renderLibraryAndTOC();"
                          ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="dropOnFolder(event, 'root')">
@@ -457,7 +493,6 @@
                 
                 allBooks.forEach(book => {
                     const matchSearch = book.name.toLowerCase().includes(searchTerm);
-                    // បង្ហាញឯកសារដែលនៅក្នុង currentFolderId
                     const matchFolder = (currentFolderId === 'root' && !book.folderId) || (book.folderId === currentFolderId);
 
                     if (matchSearch && (searchTerm !== '' || matchFolder)) {
@@ -532,7 +567,7 @@
             e.target.value = '';
         }
 
-        // ====================== READER VIEW (រក្សាដដែល) ======================
+        // ====================== READER VIEW ======================
         let currentBookId = null, currentBookName = "", pdfDoc = null, pdfBytes = null, pageNum = 1;
         let drawings = [], notesData = [], undoStack = [], redoStack = [];
         let pageWrappers = [], currentRenderScale = 1.0, basePageWidth = 800, basePageHeight = 1100, globalObserver = null;
@@ -646,8 +681,6 @@
         document.getElementById('prev-btn').addEventListener('click', () => { if (pageNum > 1) scrollToPage(pageNum - 1); });
         document.getElementById('next-btn').addEventListener('click', () => { if (pageNum < pdfDoc.numPages) scrollToPage(pageNum + 1); });
         
-        // ឧបករណ៍គូសវាស និង AI បានរក្សាទុកនៅដដែលទាំងអស់ (កូដផ្នែកគំនូសអូសទាញ)
-        // ... (កូដ Draw, Note, Export ជាដើម គឺដំណើរការធម្មតាដូចជំនាន់មុន) ...
         
         document.getElementById('save-db-btn').addEventListener('click', () => {
             if(!currentBookId) return; const tx = db.transaction(["pdfs"], "readwrite"); const store = tx.objectStore("pdfs");
