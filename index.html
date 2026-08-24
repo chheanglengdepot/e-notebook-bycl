@@ -27,16 +27,23 @@
 
         /* ---------------- បណ្ណាល័យ (Library View) ---------------- */
         #library-view { width: 100%; height: 100%; padding: 40px; overflow-y: auto; background: #fff; z-index: 1000; display: block; position: absolute; top: 0; left: 0; transition: background 0.3s;}
-        .library-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px;}
+        .library-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 15px;}
         .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
         .book-card { background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: 0.3s; position: relative;}
         .book-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-3px);}
-        .book-icon { font-size: 40px; color: #dc3545; }
-        .book-title { font-size: 13px; font-weight: bold; margin: 8px 0; word-wrap: break-word; }
+        .book-icon { font-size: 40px; color: #dc3545; pointer-events: none; }
+        .book-title { font-size: 13px; font-weight: bold; margin: 8px 0; word-wrap: break-word; pointer-events: none;}
         .btn-delete-book { position: absolute; top: 5px; right: 5px; background: red; color: white; border: none; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 11px;}
+        .btn-rename-folder { position: absolute; top: 5px; right: 42px; background: #ffc107; color: #333; border: none; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 11px;}
         
         .upload-box { background: #e9ecef; border: 2px dashed #007bff; border-radius: 8px; padding: 25px; text-align: center; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; justify-content: center; align-items: center; margin-bottom: 20px;}
         .lang-btn { background: #34a853; color: white; border: none; border-radius: 4px; padding: 8px 15px; cursor: pointer; font-family: inherit; font-weight: bold; font-size: 14px;}
+        
+        /* Breadcrumbs & Controls */
+        #library-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd; }
+        #breadcrumbs { font-weight: bold; font-size: 14px; color: #007bff; flex: 1; overflow-x: auto; white-space: nowrap; display: flex; align-items: center; gap: 5px;}
+        .breadcrumb-item { cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: 0.2s; display: inline-block;}
+        .breadcrumb-item:hover { background: #e2e6ea; }
 
         /* ---------------- ផ្ទៃអាន (Reader View) ---------------- */
         #reader-view { width: 100%; height: 100%; display: none; flex-direction: row; position: relative;}
@@ -131,17 +138,26 @@
 </head>
 <body>
 
+    <!-- Input សម្រាប់ Upload រៀបចំតែមួយកន្លែង និងលាក់កុំឱ្យជាន់គ្នា -->
+    <input type="file" id="main-pdf-upload" accept="application/pdf, image/*" style="display: none;">
+
     <div id="library-view">
         <div class="library-header">
             <h2><span data-i18n="lib_title">📚 បណ្ណាល័យសៀវភៅ</span></h2>
             <button class="lang-btn" id="lang-toggle-lib">🌐 ខ្មែរ / EN</button>
         </div>
-        <p style="font-size: 13px; color: #555; text-align:center;" data-i18n="lib_hint">(អាចទម្លាក់ឯកសារ PDF ឬ រូបភាព JPG/PNG ចូលទីនេះបាន)</p>
         
-        <div class="upload-box" onclick="document.getElementById('pdf-upload').click()">
+        <div id="library-controls">
+            <div id="breadcrumbs">
+                <!-- Breadcrumbs rendered via JS -->
+            </div>
+            <button class="lang-btn" style="background: #17a2b8; margin-left: 10px;" onclick="createNewFolder()" data-i18n="btn_create_folder">📁 បង្កើត Folder</button>
+        </div>
+
+        <div class="upload-box" onclick="document.getElementById('main-pdf-upload').click()" id="upload-drop-zone">
             <div class="book-icon">➕</div>
             <p style="font-size:14px; margin-top:10px;" data-i18n="add_doc">បញ្ចូលឯកសារ PDF ឬ រូបភាព</p>
-            <input type="file" id="pdf-upload" accept="application/pdf, image/*" style="display: none;">
+            <p style="font-size: 12px; color: #555; margin-top: 5px;" data-i18n="lib_hint">(អាចទម្លាក់ឯកសារចូលទីនេះបាន)</p>
         </div>
 
         <div class="book-grid" id="book-list"></div>
@@ -250,10 +266,10 @@
         // ------------------ I18N វចនានុក្រមបកប្រែ ------------------
         const translations = {
             "km": {
-                "lib_title": "📚 បណ្ណាល័យសៀវភៅ", "lib_hint": "(អាចទម្លាក់ឯកសារ PDF ឬ រូបភាព JPG/PNG ចូលទីនេះបាន)", "add_doc": "បញ្ចូលឯកសារ PDF ឬ រូបភាព (ទូរស័ព្ទ / កុំព្យូទ័រ)", "btn_back": "🏠 ត្រឡប់ទៅបណ្ណាល័យ", "zoom_title": "🔍 Zoom & ទំព័រ", "zoom_hint": "(អាចចុច Ctrl + Scroll ដើម្បី Zoom 🔄)", "tools_title": "🛠 ឧបករណ៍គូសវាស", "btn_undo": "↩️ ថយក្រោយ", "btn_redo": "រុញមុខ ↪️", "tool_cursor": "🖱 ជ្រើសអក្សរ", "tool_pencil": "✏️ ខ្មៅដៃ", "tool_hl": "🖍 ហាយឡាយ", "tool_line": "📏 បន្ទាត់", "tool_rect": "⬜ ចតុកោណ", "tool_circle": "⭕ រង្វង់", "tool_eraser": "🧽 ជ័រលុប", "tool_ocr": "📸 ស្កេនអក្សរ (AI OCR)", "color_label": "🎨 ជ្រើសពណ៌:", "width_label": "កម្រាស់:", "opacity_label": "ភាពច្បាស់ (Opacity):", "btn_save": "💾 រក្សាទុក (Save)", "btn_export": "📥 ទាញយកជា PDF", "mobile_menu": "☰ ឧបករណ៍ (Tools)", "popup_drag": "≡ អូសទីនេះ (Drag) ≡", "ask_ai": "🤖 សួរ AI (Gemini)", "add_note": "➕ ភ្ជាប់ Note ទីនេះ", "translate_to": "បកប្រែទៅជា:", "read_page": "អានដល់ទំព័រទី", "modal_title": "ឯកសារមិនទាន់រក្សាទុក!", "modal_desc": "តើអ្នកចង់រក្សាទុកការកែប្រែមុននឹងចាកចេញទេ?", "modal_cancel": "បោះបង់", "modal_no": "ទេ (No)", "modal_yes": "រក្សាទុក (Save)"
+                "lib_title": "📚 បណ្ណាល័យសៀវភៅ", "lib_hint": "(អាចទម្លាក់ឯកសារ PDF ឬ រូបភាពចូលទីនេះបាន)", "add_doc": "បញ្ចូលឯកសារ PDF ឬ រូបភាព", "btn_back": "🏠 ត្រឡប់ទៅបណ្ណាល័យ", "zoom_title": "🔍 Zoom & ទំព័រ", "zoom_hint": "(អាចចុច Ctrl + Scroll ដើម្បី Zoom 🔄)", "tools_title": "🛠 ឧបករណ៍គូសវាស", "btn_undo": "↩️ ថយក្រោយ", "btn_redo": "រុញមុខ ↪️", "tool_cursor": "🖱 ជ្រើសអក្សរ", "tool_pencil": "✏️ ខ្មៅដៃ", "tool_hl": "🖍 ហាយឡាយ", "tool_line": "📏 បន្ទាត់", "tool_rect": "⬜ ចតុកោណ", "tool_circle": "⭕ រង្វង់", "tool_eraser": "🧽 ជ័រលុប", "tool_ocr": "📸 ស្កេនអក្សរ (AI OCR)", "color_label": "🎨 ជ្រើសពណ៌:", "width_label": "កម្រាស់:", "opacity_label": "ភាពច្បាស់ (Opacity):", "btn_save": "💾 រក្សាទុក (Save)", "btn_export": "📥 ទាញយកជា PDF", "mobile_menu": "☰ ឧបករណ៍ (Tools)", "popup_drag": "≡ អូសទីនេះ (Drag) ≡", "ask_ai": "🤖 សួរ AI (Gemini)", "add_note": "➕ ភ្ជាប់ Note ទីនេះ", "translate_to": "បកប្រែទៅជា:", "read_page": "អានដល់ទំព័រទី", "modal_title": "ឯកសារមិនទាន់រក្សាទុក!", "modal_desc": "តើអ្នកចង់រក្សាទុកការកែប្រែមុននឹងចាកចេញទេ?", "modal_cancel": "បោះបង់", "modal_no": "ទេ (No)", "modal_yes": "រក្សាទុក (Save)", "btn_create_folder": "📁 បង្កើត Folder"
             },
             "en": {
-                "lib_title": "📚 Book Library", "lib_hint": "(Drag and drop PDF or JPG/PNG image here)", "add_doc": "Upload PDF or Image (Mobile/PC)", "btn_back": "🏠 Back to Library", "zoom_title": "🔍 Zoom & Page", "zoom_hint": "(Ctrl + Scroll to Zoom 🔄)", "tools_title": "🛠 Drawing Tools", "btn_undo": "↩️ Undo", "btn_redo": "Redo ↪️", "tool_cursor": "🖱 Cursor", "tool_pencil": "✏️ Pencil", "tool_hl": "🖍 Highlighter", "tool_line": "📏 Line", "tool_rect": "⬜ Rectangle", "tool_circle": "⭕ Circle", "tool_eraser": "🧽 Eraser", "tool_ocr": "📸 Scan Text (AI OCR)", "color_label": "🎨 Color:", "width_label": "Width:", "opacity_label": "Opacity:", "btn_save": "💾 Save Progress", "btn_export": "📥 Export as PDF", "mobile_menu": "☰ Menu Tools", "popup_drag": "≡ Drag Here ≡", "ask_ai": "🤖 Ask AI (Gemini)", "add_note": "➕ Attach Note Here", "translate_to": "Translate to:", "read_page": "Read to page", "modal_title": "Unsaved Changes!", "modal_desc": "Do you want to save changes before leaving?", "modal_cancel": "Cancel", "modal_no": "No", "modal_yes": "Save"
+                "lib_title": "📚 Book Library", "lib_hint": "(Drag and drop files here)", "add_doc": "Upload PDF or Image", "btn_back": "🏠 Back to Library", "zoom_title": "🔍 Zoom & Page", "zoom_hint": "(Ctrl + Scroll to Zoom 🔄)", "tools_title": "🛠 Drawing Tools", "btn_undo": "↩️ Undo", "btn_redo": "Redo ↪️", "tool_cursor": "🖱 Cursor", "tool_pencil": "✏️ Pencil", "tool_hl": "🖍 Highlighter", "tool_line": "📏 Line", "tool_rect": "⬜ Rectangle", "tool_circle": "⭕ Circle", "tool_eraser": "🧽 Eraser", "tool_ocr": "📸 Scan Text (AI OCR)", "color_label": "🎨 Color:", "width_label": "Width:", "opacity_label": "Opacity:", "btn_save": "💾 Save Progress", "btn_export": "📥 Export as PDF", "mobile_menu": "☰ Menu Tools", "popup_drag": "≡ Drag Here ≡", "ask_ai": "🤖 Ask AI (Gemini)", "add_note": "➕ Attach Note Here", "translate_to": "Translate to:", "read_page": "Read to page", "modal_title": "Unsaved Changes!", "modal_desc": "Do you want to save changes before leaving?", "modal_cancel": "Cancel", "modal_no": "No", "modal_yes": "Save", "btn_create_folder": "📁 Create Folder"
             }
         };
 
@@ -288,62 +304,207 @@
         if(window.innerWidth <= 768) { document.getElementById('close-popup-btn').style.display = 'block'; }
         document.getElementById('close-popup-btn').addEventListener('click', () => document.getElementById('ai-popup').style.display = 'none');
 
-
-        // ------------------ API KEY និង Model ដែលទើប Update ថ្មី ------------------
-        const API_KEY = "AQ.Ab8RN6Ithz2HFRRNoZqs1P7_dOJvOJEpmCZEoW1-jQTW3VGZjw"; 
+        // ------------------ API KEY និង Model ដែលដើរល្អ ------------------
+        const API_KEY = "AQ.Ab8RN6J-AB5N_C0YzMuO1LPvYDR8YpI1cBVYsp86DZ08gYEeFw"; 
         const GEMINI_MODEL = "gemini-1.5-flash-latest"; 
         // -----------------------------------------------------------
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
         
         let db;
+        // អាប់ដេត Database ឡើង Version 2 ដើម្បីអាចផ្ទុក Folders បាន
         const initDB = new Promise((resolve) => {
-            const request = indexedDB.open("SmartReaderDB", 1);
-            request.onupgradeneeded = (e) => { db = e.target.result; if (!db.objectStoreNames.contains("pdfs")) db.createObjectStore("pdfs", { keyPath: "id" }); };
+            const request = indexedDB.open("SmartReaderDB", 2);
+            request.onupgradeneeded = (e) => { 
+                db = e.target.result; 
+                if (!db.objectStoreNames.contains("pdfs")) db.createObjectStore("pdfs", { keyPath: "id" }); 
+                if (!db.objectStoreNames.contains("folders")) db.createObjectStore("folders", { keyPath: "id" }); 
+            };
             request.onsuccess = (e) => { db = e.target.result; resolve(); };
         });
 
-        const libraryView = document.getElementById('library-view');
-        libraryView.addEventListener('dragover', (e) => { e.preventDefault(); libraryView.style.background = '#e2e6ea'; });
-        libraryView.addEventListener('dragleave', (e) => { e.preventDefault(); libraryView.style.background = '#fff'; });
-        libraryView.addEventListener('drop', (e) => {
-            e.preventDefault(); libraryView.style.background = '#fff';
+        let currentFolderId = null;
+        let breadcrumbPath = [{id: null, name: "🏠 ដើម (Root)"}];
+
+        // ដាក់ Event Listener សម្រាប់ Upload តែម្តងគត់នៅខាងក្រៅ
+        document.getElementById('main-pdf-upload').addEventListener('change', handleFileUpload);
+
+        const uploadZone = document.getElementById('upload-drop-zone');
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.background = '#e2e6ea'; });
+        uploadZone.addEventListener('dragleave', (e) => { e.preventDefault(); uploadZone.style.background = '#e9ecef'; });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault(); uploadZone.style.background = '#e9ecef';
+            // ការពារកុំឱ្យវាច្រឡំនឹងការ Drag File នៅខាងក្នុងបណ្ណាល័យ
+            if (e.dataTransfer.getData("id")) return;
             if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFileUpload({ target: { files: e.dataTransfer.files } });
         });
 
+        async function createNewFolder() {
+            const name = prompt("បញ្ចូលឈ្មោះ Folder ថ្មី:");
+            if (!name) return;
+            const newFolder = { id: Date.now(), name: name, parentId: currentFolderId };
+            const tx = db.transaction(["folders"], "readwrite");
+            tx.objectStore("folders").put(newFolder);
+            tx.oncomplete = () => loadLibrary();
+        }
+
+        // មុខងារកែឈ្មោះ Folder ថ្មី
+        function renameFolder(id, event) {
+            event.stopPropagation();
+            const tx = db.transaction(["folders"], "readwrite");
+            const store = tx.objectStore("folders");
+            store.get(id).onsuccess = (e) => {
+                let folder = e.target.result;
+                if (folder) {
+                    const newName = prompt("បញ្ចូលឈ្មោះថ្មីសម្រាប់ Folder:", folder.name);
+                    if (newName && newName.trim() !== "" && newName !== folder.name) {
+                        folder.name = newName.trim();
+                        store.put(folder);
+                        loadLibrary(); 
+                    }
+                }
+            };
+        }
+
         async function loadLibrary() {
             await initDB;
-            const tx = db.transaction(["pdfs"], "readonly");
-            const req = tx.objectStore("pdfs").getAll();
-            req.onsuccess = (e) => {
-                const books = e.target.result;
-                const bookList = document.getElementById('book-list');
-                const addText = translations[currentLang]["add_doc"];
-                const readPageTxt = translations[currentLang]["read_page"];
+            const tx = db.transaction(["pdfs", "folders"], "readonly");
+            
+            let pdfs = []; let folders = [];
+            
+            const reqPdfs = tx.objectStore("pdfs").getAll();
+            reqPdfs.onsuccess = e => { pdfs = e.target.result; };
+            
+            const reqFolders = tx.objectStore("folders").getAll();
+            reqFolders.onsuccess = e => { folders = e.target.result; };
 
-                bookList.innerHTML = `
-                <div class="upload-box" onclick="document.getElementById('pdf-upload').click()">
-                    <div class="book-icon">➕</div><p style="font-size:14px; margin-top:10px;">${addText}</p>
-                    <input type="file" id="pdf-upload" accept="application/pdf, image/*" style="display: none;">
-                </div>`;
-                
-                books.forEach(book => {
+            tx.oncomplete = () => {
+                const bookList = document.getElementById('book-list');
+                const readPageTxt = translations[currentLang]["read_page"];
+                bookList.innerHTML = '';
+
+                // រៀបចំការបង្ហាញ Breadcrumbs
+                const bcDiv = document.getElementById('breadcrumbs');
+                bcDiv.innerHTML = breadcrumbPath.map((bc, idx) => {
+                    return `<span class="breadcrumb-item" 
+                                  onclick="goToFolder(${idx})" 
+                                  ondragover="allowDrop(event)" 
+                                  ondrop="dropToFolder(event, ${bc.id})">${bc.name}</span>`;
+                }).join('<span style="color:#666;"> &gt; </span>');
+
+                // ចម្រាញ់យកតែឯកសារ និង Folder ដែលនៅក្នុង Folder បច្ចុប្បន្ន
+                const currentFolders = folders.filter(f => f.parentId === currentFolderId);
+                const currentBooks = pdfs.filter(b => (b.folderId || null) === currentFolderId);
+
+                // បង្ហាញ Folders
+                currentFolders.forEach(folder => {
+                    const div = document.createElement('div'); div.className = 'book-card folder-card';
+                    div.draggable = true;
+                    div.ondragstart = (e) => dragStart(e, folder.id, 'folder');
+                    div.ondragover = allowDrop;
+                    div.ondrop = (e) => dropToFolder(e, folder.id);
+                    div.innerHTML = `
+                        <button class="btn-rename-folder" onclick="renameFolder(${folder.id}, event)">កែ</button>
+                        <button class="btn-delete-book" onclick="deleteFolder(${folder.id}, event)">លុប</button>
+                        <div class="book-icon" style="color: #ffc107;">📁</div>
+                        <div class="book-title">${folder.name}</div>`;
+                    div.onclick = () => openFolder(folder); 
+                    bookList.appendChild(div);
+                });
+
+                // បង្ហាញឯកសារ
+                currentBooks.forEach(book => {
                     const div = document.createElement('div'); div.className = 'book-card';
+                    div.draggable = true;
+                    div.ondragstart = (e) => dragStart(e, book.id, 'file');
                     div.innerHTML = `<button class="btn-delete-book" onclick="deleteBook(${book.id}, event)">លុប</button>
                         <div class="book-icon">${book.name.toLowerCase().endsWith('.pdf') ? '📕' : '🖼️'}</div>
                         <div class="book-title">${book.name}</div>
                         <p style="font-size:12px; margin:0; color:gray;">${readPageTxt} ${book.lastPage || 1}</p>`;
-                    div.onclick = () => openBook(book); bookList.appendChild(div);
+                    div.onclick = () => openBook(book); 
+                    bookList.appendChild(div);
                 });
-                document.getElementById('pdf-upload').addEventListener('change', handleFileUpload);
             };
         }
-        
+
+        // ----------- មុខងារបញ្ជា Folders -----------
+        function openFolder(folder) {
+            currentFolderId = folder.id;
+            breadcrumbPath.push({id: folder.id, name: folder.name});
+            loadLibrary();
+        }
+
+        function goToFolder(index) {
+            breadcrumbPath = breadcrumbPath.slice(0, index + 1);
+            currentFolderId = breadcrumbPath[breadcrumbPath.length - 1].id;
+            loadLibrary();
+        }
+
+        function deleteFolder(id, event) {
+            event.stopPropagation();
+            if(confirm("តើអ្នកពិតជាចង់លុប Folder នេះ និងឯកសារទាំងអស់នៅក្នុងនេះមែនទេ?")) { 
+                const tx = db.transaction(["pdfs", "folders"], "readwrite");
+                const fStore = tx.objectStore("folders");
+                const pStore = tx.objectStore("pdfs");
+                
+                fStore.getAll().onsuccess = (e) => {
+                    const allFolders = e.target.result;
+                    let idsToDelete = [id];
+                    let foundNew = true;
+                    // រាវរក Sub-folders ដែលស្ថិតនៅក្រោម Folder នេះ
+                    while(foundNew) {
+                        foundNew = false;
+                        allFolders.forEach(f => {
+                            if(idsToDelete.includes(f.parentId) && !idsToDelete.includes(f.id)) {
+                                idsToDelete.push(f.id); foundNew = true;
+                            }
+                        });
+                    }
+                    idsToDelete.forEach(fid => fStore.delete(fid));
+                    // លុបឯកសារដែលពាក់ព័ន្ធ
+                    pStore.getAll().onsuccess = (e2) => {
+                        e2.target.result.forEach(p => {
+                            if(idsToDelete.includes(p.folderId)) pStore.delete(p.id);
+                        });
+                    };
+                };
+                tx.oncomplete = () => loadLibrary();
+            }
+        }
+
         function deleteBook(id, event) {
             event.stopPropagation();
             if(confirm("លុបឯកសារនេះមែនទេ?")) { const tx = db.transaction(["pdfs"], "readwrite"); tx.objectStore("pdfs").delete(id); tx.oncomplete = () => loadLibrary(); }
         }
-        loadLibrary();
+
+        // ----------- មុខងារ Drag & Drop ឯកសារក្នុងបណ្ណាល័យ -----------
+        function allowDrop(ev) { ev.preventDefault(); }
+        function dragStart(ev, id, type) {
+            ev.dataTransfer.setData("id", id);
+            ev.dataTransfer.setData("type", type);
+        }
+        function dropToFolder(ev, targetFolderId) {
+            ev.preventDefault();
+            ev.stopPropagation(); 
+            const id = parseInt(ev.dataTransfer.getData("id"));
+            const type = ev.dataTransfer.getData("type");
+            
+            // ការពារកុំឱ្យទម្លាក់ Folder ចូលខ្លួនវា
+            if (type === 'folder' && id === targetFolderId) return; 
+
+            const storeName = type === 'file' ? 'pdfs' : 'folders';
+            const tx = db.transaction([storeName], "readwrite");
+            const store = tx.objectStore(storeName);
+            store.get(id).onsuccess = (e) => {
+                let item = e.target.result;
+                if (item) {
+                    if(type === 'file') item.folderId = targetFolderId;
+                    if(type === 'folder') item.parentId = targetFolderId;
+                    store.put(item);
+                }
+            };
+            tx.oncomplete = () => loadLibrary();
+        }
 
         async function handleFileUpload(e) {
             const file = e.target.files[0]; if (!file) return; 
@@ -362,7 +523,8 @@
                         page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
                         
                         const pdfBytes = await pdfDoc.save();
-                        const newBook = { id: Date.now(), name: file.name + ".pdf", data: pdfBytes.buffer, lastPage: 1, drawings: [], notesData: [] };
+                        // បន្ថែម folderId ចូលទៅក្នុង Database
+                        const newBook = { id: Date.now(), name: file.name + ".pdf", data: pdfBytes.buffer, lastPage: 1, drawings: [], notesData: [], folderId: currentFolderId };
                         const tx = db.transaction(["pdfs"], "readwrite"); tx.objectStore("pdfs").put(newBook); tx.oncomplete = () => openBook(newBook);
                     } catch(err) { alert("មានបញ្ហាក្នុងការបម្លែងរូបភាព!"); }
                 };
@@ -370,11 +532,16 @@
             } else if (file.type === 'application/pdf') {
                 const reader = new FileReader();
                 reader.onload = function() {
-                    const newBook = { id: Date.now(), name: file.name, data: this.result, lastPage: 1, drawings: [], notesData: [] };
+                    const newBook = { id: Date.now(), name: file.name, data: this.result, lastPage: 1, drawings: [], notesData: [], folderId: currentFolderId };
                     const tx = db.transaction(["pdfs"], "readwrite"); tx.objectStore("pdfs").put(newBook); tx.oncomplete = () => openBook(newBook);
                 }; reader.readAsArrayBuffer(file);
             } else { alert("សូមជ្រើសរើសតែឯកសារ PDF ឬរូបភាព (JPG/PNG) ប៉ុណ្ណោះ!"); }
+            
+            // ជម្រះតម្លៃ (Value) ដើម្បីអាច Upload ឯកសារឈ្មោះដដែលម្តងទៀតបាន
+            e.target.value = '';
         }
+
+        loadLibrary(); // Initial Load
 
         let currentBookId = null, currentBookName = "", pdfDoc = null, pdfBytes = null, pageNum = 1;
         let drawings = [], notesData = [], undoStack = [], redoStack = [];
