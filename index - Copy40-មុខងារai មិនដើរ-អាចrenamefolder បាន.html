@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>E-Notebook by CL</title>
+    <!-- បណ្ណាល័យ PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- បណ្ណាល័យ PDF-lib សម្រាប់ Export -->
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <!-- បណ្ណាល័យ Fontkit សម្រាប់អក្សរខ្មែរក្នុង PDF -->
+    <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: 'Khmer OS Battambang', Arial, sans-serif; background: #eef2f3; display: flex; height: 100vh; overflow: hidden; overscroll-behavior: none;}
+
+        /* ---------------- ចំណងជើង App (Animation) ---------------- */
+        .app-title {
+            text-align: center; font-size: 22px; font-weight: 900;
+            background: linear-gradient(45deg, #007bff, #ff007f, #007bff, #ffc107);
+            background-size: 300% auto; color: transparent;
+            -webkit-background-clip: text; background-clip: text;
+            animation: gradient-glow 4s linear infinite;
+            margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px dashed #ccc; letter-spacing: 0.5px;
+        }
+        @keyframes gradient-glow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        /* ---------------- បណ្ណាល័យ (Library View) ---------------- */
+        #library-view { width: 100%; height: 100%; padding: 40px; overflow-y: auto; background: #fff; z-index: 1000; display: block; position: absolute; top: 0; left: 0; transition: background 0.3s;}
+        .library-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 15px;}
+        .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+        .book-card { background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: 0.3s; position: relative;}
+        .book-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-3px);}
+        .book-icon { font-size: 40px; color: #dc3545; pointer-events: none; }
+        .book-title { font-size: 13px; font-weight: bold; margin: 8px 0; word-wrap: break-word; pointer-events: none;}
+        .btn-delete-book { position: absolute; top: 5px; right: 5px; background: red; color: white; border: none; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 11px;}
+        .btn-rename-folder { position: absolute; top: 5px; right: 42px; background: #ffc107; color: #333; border: none; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 11px;}
+        
+        .upload-box { background: #e9ecef; border: 2px dashed #007bff; border-radius: 8px; padding: 25px; text-align: center; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; justify-content: center; align-items: center; margin-bottom: 20px;}
+        .lang-btn { background: #34a853; color: white; border: none; border-radius: 4px; padding: 8px 15px; cursor: pointer; font-family: inherit; font-weight: bold; font-size: 14px;}
+        
+        /* Breadcrumbs & Controls */
+        #library-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd; }
+        #breadcrumbs { font-weight: bold; font-size: 14px; color: #007bff; flex: 1; overflow-x: auto; white-space: nowrap; display: flex; align-items: center; gap: 5px;}
+        .breadcrumb-item { cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: 0.2s; display: inline-block;}
+        .breadcrumb-item:hover { background: #e2e6ea; }
+
+        /* ---------------- ផ្ទៃអាន (Reader View) ---------------- */
+        #reader-view { width: 100%; height: 100%; display: none; flex-direction: row; position: relative;}
+        
+        #sidebar { width: 270px; background: white; padding: 15px 12px; box-shadow: 2px 0 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 8px; overflow-y: auto; z-index: 10000; }
+        #sidebar::-webkit-scrollbar { width: 6px; }
+        #sidebar::-webkit-scrollbar-thumb { background: #007bff; border-radius: 4px; }
+        
+        .section-title { font-weight: bold; border-bottom: 1.5px solid #007bff; padding-bottom: 4px; font-size: 14px; color: #333; margin-top: 2px;}
+        .pagination-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px;}
+        .pagination-row button { padding: 4px 10px; font-size: 13px; cursor: pointer; border: 1px solid #ccc; background: white; border-radius: 4px;}
+        .pagination-row input { width: 45px; text-align: center; font-size: 13px; padding: 4px; font-family: inherit;}
+        
+        .history-controls { display: flex; gap: 6px; margin-bottom: 2px;}
+        .history-btn { flex: 1; padding: 6px; border: 1px solid #007bff; background: white; color: #007bff; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: bold; font-family: inherit;}
+        .history-btn:hover { background: #007bff; color: white; }
+
+        .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .tool-btn { padding: 8px 4px; border: 1px solid #ddd; background: #f8f9fa; cursor: pointer; border-radius: 4px; text-align: center; font-size: 13px; font-family: inherit; transition: 0.2s; user-select: none;}
+        .tool-btn.active { background: #007bff; color: white; border-color: #007bff; font-weight: bold;}
+        .ocr-btn { grid-column: span 2; background: #ffeb3b; border-color: #fbc02d; font-weight: bold; color: #333;}
+        .ocr-btn.active { background: #fbc02d; color: #000; }
+        
+        .setting-group { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+        .setting-group input[type="range"] { width: 100%; margin: 2px 0;}
+        .setting-group input[type="color"] { width: 35px; height: 25px; padding: 0; cursor: pointer;}
+        
+        .btn-home { background: #333; color: white; padding: 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-bottom: 2px; font-family: inherit;}
+        .btn-save { background: #007bff; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-top: 15px; font-family: inherit;}
+        .btn-export { background: #dc3545; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px; font-family: inherit;}
+        
+        /* Mobile Top Nav */
+        #mobile-nav { display: none; background: white; padding: 10px 15px; border-bottom: 2px solid #007bff; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 50;}
+        #mobile-menu-btn { background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 16px; cursor: pointer;}
+        #sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; }
+
+        /* Main Content */
+        #reader-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        #main-content { flex: 1; overflow: auto; padding: 20px; background: #666; position: relative; scroll-behavior: smooth; touch-action: pan-x pan-y;}
+        #main-content.no-scroll { touch-action: none; overflow: hidden; }
+        
+        #pages-container { display: flex; flex-direction: column; align-items: center; gap: 30px; margin-bottom: 40px; transform-origin: top center;}
+        .page-wrapper { position: relative; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.4); background: white; text-align: left; }
+        .pdf-canvas, .draw-canvas, .temp-canvas { display: block; position: absolute; top: 0; left: 0; touch-action: none;}
+        .draw-canvas { pointer-events: none; z-index: 200; }
+        .temp-canvas { pointer-events: none; z-index: 250; }
+        
+        .text-layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; color: transparent; line-height: 1; z-index: 100; }
+        .text-layer span { position: absolute; cursor: text; transform-origin: 0% 0%; }
+        .text-layer span::selection { background: rgba(0, 123, 255, 0.3); color: transparent; }
+        
+        .lines-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 300; }
+        .notes-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 400; }
+        
+        /* Sticky Note */
+        .note-box { position: absolute; border: 1px solid #999; box-shadow: 2px 2px 8px rgba(0,0,0,0.2); min-width: 160px; min-height: 110px; display: flex; flex-direction: column; pointer-events: auto; resize: both; overflow: auto; border-radius: 6px; }
+        .note-header { height: 28px; cursor: move; display: flex; justify-content: space-between; align-items: center; padding: 0 4px; border-bottom: 1px solid rgba(0,0,0,0.1); background: rgba(0,0,0,0.05);}
+        .note-controls { display: flex; gap: 4px; align-items: center; }
+        .note-btn { background: white; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; font-size: 11px; padding: 2px 6px; font-weight: bold; }
+        .note-color-picker { width: 20px; height: 20px; padding: 0; border: none; cursor: pointer; background: transparent; border-radius:2px;}
+        .note-content { flex: 1; border: none; background: transparent; resize: none; width: 100%; height: 100%; outline: none; padding: 8px; font-family: inherit; font-size: 14px;}
+        .anchor-dot { position: absolute; width: 14px; height: 14px; border: 2px solid #333; border-radius: 50%; cursor: move; pointer-events: auto; transform: translate(-50%, -50%); box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 450;}
+        
+        /* Popup */
+        #ai-popup { display: none; position: absolute; background: white; border: 2px solid #007bff; border-radius: 8px; padding: 12px; width: 340px; box-shadow: 0 6px 16px rgba(0,0,0,0.25); z-index: 9000; text-align: left; max-width: 90vw;}
+        #popup-drag-handle { cursor: move; background: #f1f3f5; margin: -12px -12px 10px -12px; padding: 6px; text-align: center; border-radius: 6px 6px 0 0; font-size: 11px; color: #6c757d; border-bottom: 1px solid #dee2e6; user-select: none; }
+        .popup-input { width: 100%; padding: 8px; margin-bottom: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: inherit;}
+        .popup-btn { width: 100%; padding: 8px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 4px; font-size: 13px; color: white; font-weight: bold; font-family: inherit;}
+        #popup-result { margin-top: 8px; font-size: 13px; color: #111; border-top: 1px solid #eee; padding: 8px; display: none; line-height: 1.6; max-height: 220px; overflow-y: auto; background: #fbfbfb; border-radius: 4px; word-break: break-word; }
+        .ocr-scanner-box { border: 2px dashed #007bff; background: rgba(0, 123, 255, 0.2); position: absolute; pointer-events: none; z-index: 500; }
+
+        /* Modal សួររក្សាទុក */
+        #unsaved-modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 100000; align-items: center; justify-content: center; }
+        .unsaved-modal-content { background: white; padding: 20px; border-radius: 8px; width: 320px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .modal-buttons { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 8px; font-size: 13px; font-family: inherit; border-radius: 4px; cursor: pointer; font-weight: bold; border: none; }
+        #modal-cancel-btn { border: 1px solid #ccc; background: #f8f9fa; color: #333; }
+        #modal-no-btn { background: #dc3545; color: white; }
+        #modal-save-btn { background: #007bff; color: white; }
+
+        /* Mobile View Media Queries */
+        @media (max-width: 768px) {
+            .library-header { flex-direction: column; gap: 10px; text-align: center; }
+            #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; transition: left 0.3s ease; width: 260px;}
+            #sidebar.open { left: 0; }
+            #mobile-nav { display: flex; }
+            #main-content { padding: 10px; }
+            #ai-popup { position: fixed; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%); }
+            #popup-drag-handle { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Input សម្រាប់ Upload រៀបចំតែមួយកន្លែង និងលាក់កុំឱ្យជាន់គ្នា -->
+    <input type="file" id="main-pdf-upload" accept="application/pdf, image/*" style="display: none;">
+
+    <div id="library-view">
+        <div class="library-header">
+            <h2><span data-i18n="lib_title">📚 បណ្ណាល័យសៀវភៅ</span></h2>
+            <button class="lang-btn" id="lang-toggle-lib">🌐 ខ្មែរ / EN</button>
+        </div>
+        
+        <div id="library-controls">
+            <div id="breadcrumbs">
+                <!-- Breadcrumbs rendered via JS -->
+            </div>
+            <button class="lang-btn" style="background: #17a2b8; margin-left: 10px;" onclick="createNewFolder()" data-i18n="btn_create_folder">📁 បង្កើត Folder</button>
+        </div>
+
+        <div class="upload-box" onclick="document.getElementById('main-pdf-upload').click()" id="upload-drop-zone">
+            <div class="book-icon">➕</div>
+            <p style="font-size:14px; margin-top:10px;" data-i18n="add_doc">បញ្ចូលឯកសារ PDF ឬ រូបភាព</p>
+            <p style="font-size: 12px; color: #555; margin-top: 5px;" data-i18n="lib_hint">(អាចទម្លាក់ឯកសារចូលទីនេះបាន)</p>
+        </div>
+
+        <div class="book-grid" id="book-list"></div>
+    </div>
+
+    <div id="reader-view">
+        <div id="sidebar-overlay"></div>
+        <div id="sidebar">
+            <div class="app-title">✨ E-Notebook by CL</div>
+            <button class="lang-btn" id="lang-toggle-sidebar" style="margin-bottom: 8px;">🌐 ខ្មែរ / EN</button>
+            <button class="btn-home" id="btn-back-home" data-i18n="btn_back">🏠 ត្រឡប់ទៅបណ្ណាល័យ</button>
+            
+            <div class="section-title" data-i18n="zoom_title">🔍 Zoom & ទំព័រ</div>
+            <p style="font-size: 11px; color: #666; margin: 2px 0;" data-i18n="zoom_hint">(អាចចុច Ctrl + Scroll ដើម្បី Zoom 🔄)</p>
+            <div class="pagination-row">
+                <button id="zoom-out-btn">➖</button>
+                <span id="zoom-val">Auto</span>
+                <button id="zoom-in-btn">➕</button>
+                <button id="zoom-fit-btn" style="margin-left: 5px; padding: 4px 6px;" title="Fit to Screen">🔲 Fit</button>
+            </div>
+            <div class="pagination-row" style="margin-top: 6px;">
+                <button id="prev-btn">◀</button>
+                <span><input type="number" id="page-input"> / <span id="page-count">0</span></span>
+                <button id="next-btn">▶</button>
+            </div>
+            
+            <div class="section-title" data-i18n="tools_title">🛠 ឧបករណ៍គូសវាស</div>
+            <div class="history-controls">
+                <button class="history-btn" id="undo-btn" data-i18n="btn_undo">↩️ ថយក្រោយ</button>
+                <button class="history-btn" id="redo-btn" data-i18n="btn_redo">រុញមុខ ↪️</button>
+            </div>
+            <div class="tool-grid">
+                <button class="tool-btn active" data-tool="cursor" data-i18n="tool_cursor">🖱 ជ្រើសអក្សរ</button>
+                <button class="tool-btn" data-tool="pencil" data-i18n="tool_pencil">✏️ ខ្មៅដៃ</button>
+                <button class="tool-btn" data-tool="highlighter" data-i18n="tool_hl">🖍 ហាយឡាយ</button>
+                <button class="tool-btn" data-tool="line" data-i18n="tool_line">📏 បន្ទាត់</button>
+                <button class="tool-btn" data-tool="rect" data-i18n="tool_rect">⬜ ចតុកោណ</button>
+                <button class="tool-btn" data-tool="circle" data-i18n="tool_circle">⭕ រង្វង់</button>
+                <button class="tool-btn" data-tool="eraser" style="grid-column: span 2;" data-i18n="tool_eraser">🧽 ជ័រលុប</button>
+                <button class="tool-btn ocr-btn" data-tool="ocr" data-i18n="tool_ocr">📸 ស្កេនអក្សរ (AI OCR)</button>
+            </div>
+            
+            <div class="setting-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 4px;">
+                <span data-i18n="color_label">🎨 ជ្រើសពណ៌:</span> <input type="color" id="tool-color" value="#ffeb3b">
+            </div>
+            <div class="setting-group">
+                <label><span data-i18n="width_label">កម្រាស់:</span> <span id="size-val">4</span>px</label>
+                <input type="range" id="tool-width" min="1" max="40" value="4">
+            </div>
+            <div class="setting-group">
+                <label><span data-i18n="opacity_label">ភាពច្បាស់:</span> <span id="opacity-val">50</span>%</label>
+                <input type="range" id="tool-opacity" min="0.1" max="1" step="0.1" value="0.5">
+            </div>
+
+            <button class="btn-save" id="save-db-btn" data-i18n="btn_save">💾 រក្សាទុក (Save)</button>
+            <button class="btn-export" id="export-pdf-btn" data-i18n="btn_export">📥 ទាញយកជា PDF</button>
+        </div>
+
+        <div id="reader-body">
+            <div id="mobile-nav">
+                <button id="mobile-menu-btn" data-i18n="mobile_menu">☰ ឧបករណ៍ (Tools)</button>
+            </div>
+            <div id="main-content">
+                <div id="pages-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal សួរមុនពេលចេញ -->
+    <div id="unsaved-modal-overlay">
+        <div class="unsaved-modal-content">
+            <h3 style="margin-top:0; color:#dc3545; font-family: inherit;" data-i18n="modal_title">ឯកសារមិនទាន់រក្សាទុក!</h3>
+            <p style="font-size:14px; color:#555; margin-bottom:10px;" data-i18n="modal_desc">តើអ្នកចង់រក្សាទុកការកែប្រែមុននឹងចាកចេញទេ?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn" id="modal-cancel-btn" data-i18n="modal_cancel">បោះបង់</button>
+                <button class="modal-btn" id="modal-no-btn" data-i18n="modal_no">ទេ (No)</button>
+                <button class="modal-btn" id="modal-save-btn" data-i18n="modal_yes">រក្សាទុក (Save)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup -->
+    <div id="ai-popup">
+        <div id="popup-drag-handle" data-i18n="popup_drag">≡ អូសទីនេះ (Drag) ≡</div>
+        <button id="close-popup-btn" style="position: absolute; right: 5px; top: 5px; background: red; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: none; font-weight: bold;">X</button>
+        <textarea id="selected-word-input" class="popup-input" style="height: 60px; resize: vertical;" placeholder="អត្ថបទដែលបានជ្រើសរើស..."></textarea>
+        
+        <select id="lang-select" class="popup-input">
+            <option value="km">🇰🇭 បកប្រែទៅជា: ខ្មែរ (Khmer)</option>
+            <option value="en">🇬🇧 បកប្រែទៅជា: អង់គ្លេស (English)</option>
+            <option value="fr">🇫🇷 បកប្រែទៅជា: បារាំង (French)</option>
+            <option value="zh-CN">🇨🇳 បកប្រែទៅជា: ចិន (Chinese)</option>
+            <option value="ja">🇯🇵 បកប្រែទៅជា: ជប៉ុន (Japanese)</option>
+            <option value="ko">🇰🇷 បកប្រែទៅជា: កូរ៉េ (Korean)</option>
+            <option value="es">🇪🇸 បកប្រែទៅជា: អេស្ប៉ាញ (Spanish)</option>
+            <option value="de">🇩🇪 បកប្រែទៅជា: អាល្លឺម៉ង់ (German)</option>
+        </select>
+        
+        <button class="popup-btn" style="background:#007bff;" id="ask-ai-btn" data-i18n="ask_ai">🤖 សួរ AI (Gemini)</button>
+        <button class="popup-btn" style="background:#34a853;" id="translate-btn">⚡ Google Translate</button>
+        <button class="popup-btn" style="background:#ffc107; color:#333;" id="add-note-btn" data-i18n="add_note">➕ ភ្ជាប់ Note ទីនេះ</button>
+        <div id="popup-result"></div>
+    </div>
+
+    <script>
+        // ------------------ I18N វចនានុក្រមបកប្រែ ------------------
+        const translations = {
+            "km": {
+                "lib_title": "📚 បណ្ណាល័យសៀវភៅ", "lib_hint": "(អាចទម្លាក់ឯកសារ PDF ឬ រូបភាពចូលទីនេះបាន)", "add_doc": "បញ្ចូលឯកសារ PDF ឬ រូបភាព", "btn_back": "🏠 ត្រឡប់ទៅបណ្ណាល័យ", "zoom_title": "🔍 Zoom & ទំព័រ", "zoom_hint": "(អាចចុច Ctrl + Scroll ដើម្បី Zoom 🔄)", "tools_title": "🛠 ឧបករណ៍គូសវាស", "btn_undo": "↩️ ថយក្រោយ", "btn_redo": "រុញមុខ ↪️", "tool_cursor": "🖱 ជ្រើសអក្សរ", "tool_pencil": "✏️ ខ្មៅដៃ", "tool_hl": "🖍 ហាយឡាយ", "tool_line": "📏 បន្ទាត់", "tool_rect": "⬜ ចតុកោណ", "tool_circle": "⭕ រង្វង់", "tool_eraser": "🧽 ជ័រលុប", "tool_ocr": "📸 ស្កេនអក្សរ (AI OCR)", "color_label": "🎨 ជ្រើសពណ៌:", "width_label": "កម្រាស់:", "opacity_label": "ភាពច្បាស់ (Opacity):", "btn_save": "💾 រក្សាទុក (Save)", "btn_export": "📥 ទាញយកជា PDF", "mobile_menu": "☰ ឧបករណ៍ (Tools)", "popup_drag": "≡ អូសទីនេះ (Drag) ≡", "ask_ai": "🤖 សួរ AI (Gemini)", "add_note": "➕ ភ្ជាប់ Note ទីនេះ", "translate_to": "បកប្រែទៅជា:", "read_page": "អានដល់ទំព័រទី", "modal_title": "ឯកសារមិនទាន់រក្សាទុក!", "modal_desc": "តើអ្នកចង់រក្សាទុកការកែប្រែមុននឹងចាកចេញទេ?", "modal_cancel": "បោះបង់", "modal_no": "ទេ (No)", "modal_yes": "រក្សាទុក (Save)", "btn_create_folder": "📁 បង្កើត Folder"
+            },
+            "en": {
+                "lib_title": "📚 Book Library", "lib_hint": "(Drag and drop files here)", "add_doc": "Upload PDF or Image", "btn_back": "🏠 Back to Library", "zoom_title": "🔍 Zoom & Page", "zoom_hint": "(Ctrl + Scroll to Zoom 🔄)", "tools_title": "🛠 Drawing Tools", "btn_undo": "↩️ Undo", "btn_redo": "Redo ↪️", "tool_cursor": "🖱 Cursor", "tool_pencil": "✏️ Pencil", "tool_hl": "🖍 Highlighter", "tool_line": "📏 Line", "tool_rect": "⬜ Rectangle", "tool_circle": "⭕ Circle", "tool_eraser": "🧽 Eraser", "tool_ocr": "📸 Scan Text (AI OCR)", "color_label": "🎨 Color:", "width_label": "Width:", "opacity_label": "Opacity:", "btn_save": "💾 Save Progress", "btn_export": "📥 Export as PDF", "mobile_menu": "☰ Menu Tools", "popup_drag": "≡ Drag Here ≡", "ask_ai": "🤖 Ask AI (Gemini)", "add_note": "➕ Attach Note Here", "translate_to": "Translate to:", "read_page": "Read to page", "modal_title": "Unsaved Changes!", "modal_desc": "Do you want to save changes before leaving?", "modal_cancel": "Cancel", "modal_no": "No", "modal_yes": "Save", "btn_create_folder": "📁 Create Folder"
+            }
+        };
+
+        let currentLang = "km";
+        function toggleLanguage() {
+            currentLang = currentLang === "km" ? "en" : "km";
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if(translations[currentLang][key]) { el.innerHTML = translations[currentLang][key]; }
+            });
+            const sel = document.getElementById('lang-select');
+            const prefix = translations[currentLang]["translate_to"];
+            sel.options[0].text = `🇰🇭 ${prefix} ខ្មែរ (Khmer)`;
+            sel.options[1].text = `🇬🇧 ${prefix} អង់គ្លេស (English)`;
+            sel.options[2].text = `🇫🇷 ${prefix} បារាំង (French)`;
+            sel.options[3].text = `🇨🇳 ${prefix} ចិន (Chinese)`;
+            sel.options[4].text = `🇯🇵 ${prefix} ជប៉ុន (Japanese)`;
+            sel.options[5].text = `🇰🇷 ${prefix} កូរ៉េ (Korean)`;
+            sel.options[6].text = `🇪🇸 ${prefix} អេស្ប៉ាញ (Spanish)`;
+            sel.options[7].text = `🇩🇪 ${prefix} អាល្លឺម៉ង់ (German)`;
+            loadLibrary(); 
+        }
+
+        document.getElementById('lang-toggle-lib').addEventListener('click', toggleLanguage);
+        document.getElementById('lang-toggle-sidebar').addEventListener('click', toggleLanguage);
+
+        // Mobile Sidebar Control
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        document.getElementById('mobile-menu-btn').addEventListener('click', () => { sidebar.classList.add('open'); sidebarOverlay.classList.add('open'); });
+        sidebarOverlay.addEventListener('click', () => { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); });
+        if(window.innerWidth <= 768) { document.getElementById('close-popup-btn').style.display = 'block'; }
+        document.getElementById('close-popup-btn').addEventListener('click', () => document.getElementById('ai-popup').style.display = 'none');
+
+        // ------------------ API KEY និង Model ដែលដើរល្អ ------------------
+        const API_KEY = "AQ.Ab8RN6J-AB5N_C0YzMuO1LPvYDR8YpI1cBVYsp86DZ08gYEeFw"; 
+        const GEMINI_MODEL = "gemini-1.5-flash-latest"; 
+        // -----------------------------------------------------------
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        
+        let db;
+        // អាប់ដេត Database ឡើង Version 2 ដើម្បីអាចផ្ទុក Folders បាន
+        const initDB = new Promise((resolve) => {
+            const request = indexedDB.open("SmartReaderDB", 2);
+            request.onupgradeneeded = (e) => { 
+                db = e.target.result; 
+                if (!db.objectStoreNames.contains("pdfs")) db.createObjectStore("pdfs", { keyPath: "id" }); 
+                if (!db.objectStoreNames.contains("folders")) db.createObjectStore("folders", { keyPath: "id" }); 
+            };
+            request.onsuccess = (e) => { db = e.target.result; resolve(); };
+        });
+
+        let currentFolderId = null;
+        let breadcrumbPath = [{id: null, name: "🏠 ដើម (Root)"}];
+
+        // ដាក់ Event Listener សម្រាប់ Upload តែម្តងគត់នៅខាងក្រៅ
+        document.getElementById('main-pdf-upload').addEventListener('change', handleFileUpload);
+
+        const uploadZone = document.getElementById('upload-drop-zone');
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.background = '#e2e6ea'; });
+        uploadZone.addEventListener('dragleave', (e) => { e.preventDefault(); uploadZone.style.background = '#e9ecef'; });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault(); uploadZone.style.background = '#e9ecef';
+            // ការពារកុំឱ្យវាច្រឡំនឹងការ Drag File នៅខាងក្នុងបណ្ណាល័យ
+            if (e.dataTransfer.getData("id")) return;
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFileUpload({ target: { files: e.dataTransfer.files } });
+        });
+
+        async function createNewFolder() {
+            const name = prompt("បញ្ចូលឈ្មោះ Folder ថ្មី:");
+            if (!name) return;
+            const newFolder = { id: Date.now(), name: name, parentId: currentFolderId };
+            const tx = db.transaction(["folders"], "readwrite");
+            tx.objectStore("folders").put(newFolder);
+            tx.oncomplete = () => loadLibrary();
+        }
+
+        // មុខងារកែឈ្មោះ Folder ថ្មី
+        function renameFolder(id, event) {
+            event.stopPropagation();
+            const tx = db.transaction(["folders"], "readwrite");
+            const store = tx.objectStore("folders");
+            store.get(id).onsuccess = (e) => {
+                let folder = e.target.result;
+                if (folder) {
+                    const newName = prompt("បញ្ចូលឈ្មោះថ្មីសម្រាប់ Folder:", folder.name);
+                    if (newName && newName.trim() !== "" && newName !== folder.name) {
+                        folder.name = newName.trim();
+                        store.put(folder);
+                        loadLibrary(); 
+                    }
+                }
+            };
+        }
+
+        async function loadLibrary() {
+            await initDB;
+            const tx = db.transaction(["pdfs", "folders"], "readonly");
+            
+            let pdfs = []; let folders = [];
+            
+            const reqPdfs = tx.objectStore("pdfs").getAll();
+            reqPdfs.onsuccess = e => { pdfs = e.target.result; };
+            
+            const reqFolders = tx.objectStore("folders").getAll();
+            reqFolders.onsuccess = e => { folders = e.target.result; };
+
+            tx.oncomplete = () => {
+                const bookList = document.getElementById('book-list');
+                const readPageTxt = translations[currentLang]["read_page"];
+                bookList.innerHTML = '';
+
+                // រៀបចំការបង្ហាញ Breadcrumbs
+                const bcDiv = document.getElementById('breadcrumbs');
+                bcDiv.innerHTML = breadcrumbPath.map((bc, idx) => {
+                    return `<span class="breadcrumb-item" 
+                                  onclick="goToFolder(${idx})" 
+                                  ondragover="allowDrop(event)" 
+                                  ondrop="dropToFolder(event, ${bc.id})">${bc.name}</span>`;
+                }).join('<span style="color:#666;"> &gt; </span>');
+
+                // ចម្រាញ់យកតែឯកសារ និង Folder ដែលនៅក្នុង Folder បច្ចុប្បន្ន
+                const currentFolders = folders.filter(f => f.parentId === currentFolderId);
+                const currentBooks = pdfs.filter(b => (b.folderId || null) === currentFolderId);
+
+                // បង្ហាញ Folders
+                currentFolders.forEach(folder => {
+                    const div = document.createElement('div'); div.className = 'book-card folder-card';
+                    div.draggable = true;
+                    div.ondragstart = (e) => dragStart(e, folder.id, 'folder');
+                    div.ondragover = allowDrop;
+                    div.ondrop = (e) => dropToFolder(e, folder.id);
+                    div.innerHTML = `
+                        <button class="btn-rename-folder" onclick="renameFolder(${folder.id}, event)">កែ</button>
+                        <button class="btn-delete-book" onclick="deleteFolder(${folder.id}, event)">លុប</button>
+                        <div class="book-icon" style="color: #ffc107;">📁</div>
+                        <div class="book-title">${folder.name}</div>`;
+                    div.onclick = () => openFolder(folder); 
+                    bookList.appendChild(div);
+                });
+
+                // បង្ហាញឯកសារ
+                currentBooks.forEach(book => {
+                    const div = document.createElement('div'); div.className = 'book-card';
+                    div.draggable = true;
+                    div.ondragstart = (e) => dragStart(e, book.id, 'file');
+                    div.innerHTML = `<button class="btn-delete-book" onclick="deleteBook(${book.id}, event)">លុប</button>
+                        <div class="book-icon">${book.name.toLowerCase().endsWith('.pdf') ? '📕' : '🖼️'}</div>
+                        <div class="book-title">${book.name}</div>
+                        <p style="font-size:12px; margin:0; color:gray;">${readPageTxt} ${book.lastPage || 1}</p>`;
+                    div.onclick = () => openBook(book); 
+                    bookList.appendChild(div);
+                });
+            };
+        }
+
+        // ----------- មុខងារបញ្ជា Folders -----------
+        function openFolder(folder) {
+            currentFolderId = folder.id;
+            breadcrumbPath.push({id: folder.id, name: folder.name});
+            loadLibrary();
+        }
+
+        function goToFolder(index) {
+            breadcrumbPath = breadcrumbPath.slice(0, index + 1);
+            currentFolderId = breadcrumbPath[breadcrumbPath.length - 1].id;
+            loadLibrary();
+        }
+
+        function deleteFolder(id, event) {
+            event.stopPropagation();
+            if(confirm("តើអ្នកពិតជាចង់លុប Folder នេះ និងឯកសារទាំងអស់នៅក្នុងនេះមែនទេ?")) { 
+                const tx = db.transaction(["pdfs", "folders"], "readwrite");
+                const fStore = tx.objectStore("folders");
+                const pStore = tx.objectStore("pdfs");
+                
+                fStore.getAll().onsuccess = (e) => {
+                    const allFolders = e.target.result;
+                    let idsToDelete = [id];
+                    let foundNew = true;
+                    // រាវរក Sub-folders ដែលស្ថិតនៅក្រោម Folder នេះ
+                    while(foundNew) {
+                        foundNew = false;
+                        allFolders.forEach(f => {
+                            if(idsToDelete.includes(f.parentId) && !idsToDelete.includes(f.id)) {
+                                idsToDelete.push(f.id); foundNew = true;
+                            }
+                        });
+                    }
+                    idsToDelete.forEach(fid => fStore.delete(fid));
+                    // លុបឯកសារដែលពាក់ព័ន្ធ
+                    pStore.getAll().onsuccess = (e2) => {
+                        e2.target.result.forEach(p => {
+                            if(idsToDelete.includes(p.folderId)) pStore.delete(p.id);
+                        });
+                    };
+                };
+                tx.oncomplete = () => loadLibrary();
+            }
+        }
+
+        function deleteBook(id, event) {
+            event.stopPropagation();
+            if(confirm("លុបឯកសារនេះមែនទេ?")) { const tx = db.transaction(["pdfs"], "readwrite"); tx.objectStore("pdfs").delete(id); tx.oncomplete = () => loadLibrary(); }
+        }
+
+        // ----------- មុខងារ Drag & Drop ឯកសារក្នុងបណ្ណាល័យ -----------
+        function allowDrop(ev) { ev.preventDefault(); }
+        function dragStart(ev, id, type) {
+            ev.dataTransfer.setData("id", id);
+            ev.dataTransfer.setData("type", type);
+        }
+        function dropToFolder(ev, targetFolderId) {
+            ev.preventDefault();
+            ev.stopPropagation(); 
+            const id = parseInt(ev.dataTransfer.getData("id"));
+            const type = ev.dataTransfer.getData("type");
+            
+            // ការពារកុំឱ្យទម្លាក់ Folder ចូលខ្លួនវា
+            if (type === 'folder' && id === targetFolderId) return; 
+
+            const storeName = type === 'file' ? 'pdfs' : 'folders';
+            const tx = db.transaction([storeName], "readwrite");
+            const store = tx.objectStore(storeName);
+            store.get(id).onsuccess = (e) => {
+                let item = e.target.result;
+                if (item) {
+                    if(type === 'file') item.folderId = targetFolderId;
+                    if(type === 'folder') item.parentId = targetFolderId;
+                    store.put(item);
+                }
+            };
+            tx.oncomplete = () => loadLibrary();
+        }
+
+        async function handleFileUpload(e) {
+            const file = e.target.files[0]; if (!file) return; 
+            
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = async function() {
+                    try {
+                        const { PDFDocument } = PDFLib;
+                        const pdfDoc = await PDFDocument.create();
+                        let image;
+                        if (file.type === 'image/jpeg') image = await pdfDoc.embedJpg(this.result);
+                        else if (file.type === 'image/png') image = await pdfDoc.embedPng(this.result);
+                        
+                        const page = pdfDoc.addPage([image.width, image.height]);
+                        page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+                        
+                        const pdfBytes = await pdfDoc.save();
+                        // បន្ថែម folderId ចូលទៅក្នុង Database
+                        const newBook = { id: Date.now(), name: file.name + ".pdf", data: pdfBytes.buffer, lastPage: 1, drawings: [], notesData: [], folderId: currentFolderId };
+                        const tx = db.transaction(["pdfs"], "readwrite"); tx.objectStore("pdfs").put(newBook); tx.oncomplete = () => openBook(newBook);
+                    } catch(err) { alert("មានបញ្ហាក្នុងការបម្លែងរូបភាព!"); }
+                };
+                reader.readAsArrayBuffer(file);
+            } else if (file.type === 'application/pdf') {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    const newBook = { id: Date.now(), name: file.name, data: this.result, lastPage: 1, drawings: [], notesData: [], folderId: currentFolderId };
+                    const tx = db.transaction(["pdfs"], "readwrite"); tx.objectStore("pdfs").put(newBook); tx.oncomplete = () => openBook(newBook);
+                }; reader.readAsArrayBuffer(file);
+            } else { alert("សូមជ្រើសរើសតែឯកសារ PDF ឬរូបភាព (JPG/PNG) ប៉ុណ្ណោះ!"); }
+            
+            // ជម្រះតម្លៃ (Value) ដើម្បីអាច Upload ឯកសារឈ្មោះដដែលម្តងទៀតបាន
+            e.target.value = '';
+        }
+
+        loadLibrary(); // Initial Load
+
+        let currentBookId = null, currentBookName = "", pdfDoc = null, pdfBytes = null, pageNum = 1;
+        let drawings = [], notesData = [], undoStack = [], redoStack = [];
+        let pageWrappers = []; 
+        let currentRenderScale = 1.0; 
+        let basePageWidth = 800, basePageHeight = 1100;
+        let globalObserver = null;
+        
+        let currentTool = 'cursor', currentColor = '#ffeb3b', currentLineWidth = 4, currentOpacity = 0.5;
+        let isDrawing = false, tempPath = [], tempStartX = 0, tempStartY = 0, highlightAxis = null; 
+        let activeDrawPageWrapper = null, activePopupPage = 1;
+        let currentTargetPos = {x: 0, y: 0};
+
+        let hasUnsavedChanges = false;
+        function markUnsaved() { hasUnsavedChanges = true; }
+
+        function saveHistory() { undoStack.push(JSON.parse(JSON.stringify(drawings))); redoStack = []; markUnsaved(); }
+        document.getElementById('undo-btn').addEventListener('click', () => { if (undoStack.length > 0) { redoStack.push(JSON.parse(JSON.stringify(drawings))); drawings = undoStack.pop(); renderDrawingsForAll(); markUnsaved(); } });
+        document.getElementById('redo-btn').addEventListener('click', () => { if (redoStack.length > 0) { undoStack.push(JSON.parse(JSON.stringify(drawings))); drawings = redoStack.pop(); renderDrawingsForAll(); markUnsaved(); } });
+
+        function goBackToLibrary() {
+            document.getElementById('reader-view').style.display = 'none'; 
+            document.getElementById('library-view').style.display = 'block';
+            if(globalObserver) globalObserver.disconnect(); loadLibrary();
+        }
+
+        document.getElementById('btn-back-home').addEventListener('click', () => {
+            if (hasUnsavedChanges) { document.getElementById('unsaved-modal-overlay').style.display = 'flex'; } 
+            else { goBackToLibrary(); }
+        });
+
+        document.getElementById('modal-cancel-btn').addEventListener('click', () => { document.getElementById('unsaved-modal-overlay').style.display = 'none'; });
+        document.getElementById('modal-no-btn').addEventListener('click', () => {
+            document.getElementById('unsaved-modal-overlay').style.display = 'none';
+            hasUnsavedChanges = false; goBackToLibrary();
+        });
+        document.getElementById('modal-save-btn').addEventListener('click', () => {
+            document.getElementById('unsaved-modal-overlay').style.display = 'none';
+            document.getElementById('save-db-btn').click(); 
+            setTimeout(() => { goBackToLibrary(); }, 300);
+        });
+
+        async function openBook(book) {
+            hasUnsavedChanges = false;
+            currentBookId = book.id; currentBookName = book.name; pdfBytes = book.data; pageNum = book.lastPage || 1;
+            drawings = book.drawings || []; notesData = book.notesData || [];
+            undoStack = []; redoStack = [];
+            document.getElementById('library-view').style.display = 'none'; document.getElementById('reader-view').style.display = 'flex';
+            
+            try {
+                pdfDoc = await pdfjsLib.getDocument(new Uint8Array(pdfBytes)).promise;
+                document.getElementById('page-count').textContent = pdfDoc.numPages;
+                
+                const firstPage = await pdfDoc.getPage(1);
+                const originalViewport = firstPage.getViewport({ scale: 1 });
+                basePageWidth = originalViewport.width; basePageHeight = originalViewport.height;
+
+                const containerWidth = document.getElementById('main-content').clientWidth - (window.innerWidth <= 768 ? 20 : 60);
+                currentRenderScale = containerWidth / basePageWidth;
+                currentRenderScale = Math.round(currentRenderScale * 100) / 100;
+
+                if(currentRenderScale > 2.5) currentRenderScale = 2.5; 
+                if(currentRenderScale < 0.2) currentRenderScale = 0.2; 
+                document.getElementById('zoom-val').textContent = Math.round(currentRenderScale * 100) + '%';
+                
+                window.defaultPageWidth = basePageWidth * currentRenderScale; 
+                window.defaultPageHeight = basePageHeight * currentRenderScale;
+
+                buildContinuousPages();
+                setTimeout(() => scrollToPage(pageNum), 100);
+            } catch (error) { alert("Error opening document!"); }
+        }
+
+        function buildContinuousPages() {
+            const container = document.getElementById('pages-container'); container.innerHTML = ''; pageWrappers = [];
+            if(globalObserver) globalObserver.disconnect();
+
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const wrapper = document.createElement('div'); wrapper.className = 'page-wrapper'; wrapper.dataset.page = i;
+                wrapper.style.width = window.defaultPageWidth + 'px'; wrapper.style.height = window.defaultPageHeight + 'px';
+
+                const canvas = document.createElement('canvas'); canvas.className = 'pdf-canvas';
+                const drawCanvas = document.createElement('canvas'); drawCanvas.className = 'draw-canvas';
+                const tempCanvas = document.createElement('canvas'); tempCanvas.className = 'temp-canvas';
+                const textLayer = document.createElement('div'); textLayer.className = 'text-layer';
+                const svgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svgLayer.setAttribute('class', 'lines-layer');
+                const notesLayer = document.createElement('div'); notesLayer.className = 'notes-layer';
+
+                drawCanvas.style.pointerEvents = (currentTool !== 'cursor') ? 'auto' : 'none';
+                drawCanvas.style.cursor = getCursorForTool(currentTool);
+
+                wrapper.append(canvas, drawCanvas, tempCanvas, textLayer, svgLayer, notesLayer);
+                container.appendChild(wrapper);
+                pageWrappers.push({ pageNum: i, wrapper, canvas, drawCanvas, tempCanvas, textLayer, svgLayer, notesLayer, rendered: false });
+            }
+
+            globalObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const wp = pageWrappers[parseInt(entry.target.dataset.page) - 1];
+                        if (!wp.rendered) { renderSpecificPage(wp); wp.rendered = true; }
+                        document.getElementById('page-input').value = wp.pageNum; 
+                        
+                        if(pageNum !== wp.pageNum && wp.pageNum > 0) {
+                            clearTimeout(window.scrollSaveTimer);
+                            window.scrollSaveTimer = setTimeout(() => {
+                                pageNum = wp.pageNum;
+                                if(currentBookId) {
+                                    const tx = db.transaction(["pdfs"], "readwrite"); const store = tx.objectStore("pdfs");
+                                    store.get(currentBookId).onsuccess = (e) => { let record = e.target.result; record.lastPage = pageNum; store.put(record); };
+                                }
+                            }, 500);
+                        }
+                    }
+                });
+            }, { root: document.getElementById('main-content'), threshold: 0.1 });
+            pageWrappers.forEach(wp => globalObserver.observe(wp.wrapper));
+        }
+
+        async function renderSpecificPage(wp) {
+            const page = await pdfDoc.getPage(wp.pageNum); const viewport = page.getViewport({ scale: currentRenderScale });
+            wp.wrapper.style.width = viewport.width + 'px'; wp.wrapper.style.height = viewport.height + 'px';
+            wp.canvas.width = wp.drawCanvas.width = wp.tempCanvas.width = viewport.width; 
+            wp.canvas.height = wp.drawCanvas.height = wp.tempCanvas.height = viewport.height;
+            wp.canvas.style.position = wp.drawCanvas.style.position = wp.tempCanvas.style.position = wp.textLayer.style.position = wp.svgLayer.style.position = wp.notesLayer.style.position = 'absolute';
+            
+            const ctx = wp.canvas.getContext('2d'); await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            const textContent = await page.getTextContent(); wp.textLayer.innerHTML = ""; 
+            textContent.items.forEach(item => {
+                const span = document.createElement('span'); span.textContent = item.str;
+                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                span.style.left = tx[4] + 'px'; span.style.top = (tx[5] - tx[3]) + 'px'; span.style.fontSize = tx[3] + 'px';
+                wp.textLayer.appendChild(span);
+            });
+            renderDrawingsForPage(wp.pageNum); renderNotesForPage(wp.pageNum);
+        }
+
+        document.getElementById('main-content').addEventListener('wheel', (e) => {
+            if (e.ctrlKey) { e.preventDefault(); if (e.deltaY < 0) changeZoom(0.05); else changeZoom(-0.05); }
+        }, { passive: false });
+
+        document.getElementById('zoom-in-btn').addEventListener('click', () => changeZoom(0.1));
+        document.getElementById('zoom-out-btn').addEventListener('click', () => changeZoom(-0.1));
+        
+        document.getElementById('zoom-fit-btn').addEventListener('click', () => {
+            if(!pdfDoc) return;
+            const containerWidth = document.getElementById('main-content').clientWidth - (window.innerWidth <= 768 ? 20 : 60);
+            currentRenderScale = containerWidth / basePageWidth;
+            currentRenderScale = Math.round(currentRenderScale * 100) / 100;
+            if(currentRenderScale > 2.5) currentRenderScale = 2.5; 
+            if(currentRenderScale < 0.2) currentRenderScale = 0.2; 
+            document.getElementById('zoom-val').textContent = Math.round(currentRenderScale * 100) + '%';
+            window.defaultPageWidth = basePageWidth * currentRenderScale; 
+            window.defaultPageHeight = basePageHeight * currentRenderScale;
+            buildContinuousPages(); 
+        });
+        
+        function changeZoom(delta) {
+            currentRenderScale += delta; currentRenderScale = Math.round(currentRenderScale * 100) / 100;
+            if(currentRenderScale < 0.2) currentRenderScale = 0.2; if(currentRenderScale > 4) currentRenderScale = 4;
+            document.getElementById('zoom-val').textContent = Math.round(currentRenderScale * 100) + '%';
+            window.defaultPageWidth = basePageWidth * currentRenderScale; window.defaultPageHeight = basePageHeight * currentRenderScale;
+            buildContinuousPages(); 
+        }
+
+        document.getElementById('prev-btn').addEventListener('click', () => { if (pageNum > 1) scrollToPage(pageNum - 1); });
+        document.getElementById('next-btn').addEventListener('click', () => { if (pageNum < pdfDoc.numPages) scrollToPage(pageNum + 1); });
+        document.getElementById('page-input').addEventListener('change', (e) => scrollToPage(parseInt(e.target.value)));
+        function scrollToPage(num) { if(num >= 1 && num <= pdfDoc.numPages) { const wp = pageWrappers[num - 1]; if(wp && wp.wrapper) wp.wrapper.scrollIntoView({behavior: 'smooth', block: 'start'}); } }
+
+        function getCursorForTool(tool) {
+            switch(tool) {
+                case 'pencil': return 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>✏️</text></svg>") 0 20, crosshair';
+                case 'highlighter': return 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>🖍</text></svg>") 0 20, crosshair';
+                case 'eraser': return 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><text y=\'20\' font-size=\'20\'>🧽</text></svg>") 0 20, cell';
+                case 'ocr': return 'crosshair';
+                case 'line': case 'rect': case 'circle': return 'crosshair'; default: return 'auto';
+            }
+        }
+
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active'); currentTool = this.getAttribute('data-tool');
+                if (currentTool === 'highlighter') { document.getElementById('tool-width').value = 20; document.getElementById('size-val').innerText = 20; currentLineWidth = 20; document.getElementById('tool-opacity').value = 0.4; document.getElementById('opacity-val').innerText = 40; currentOpacity = 0.4; }
+                
+                document.getElementById('ai-popup').style.display = 'none';
+                pageWrappers.forEach(wp => { 
+                    wp.drawCanvas.style.pointerEvents = (currentTool !== 'cursor') ? 'auto' : 'none';
+                    wp.drawCanvas.style.cursor = getCursorForTool(currentTool);
+                });
+            });
+        });
+
+        document.getElementById('tool-color').addEventListener('input', (e) => currentColor = e.target.value);
+        document.getElementById('tool-width').addEventListener('input', (e) => { currentLineWidth = e.target.value; document.getElementById('size-val').innerText = currentLineWidth; });
+        document.getElementById('tool-opacity').addEventListener('input', (e) => { currentOpacity = e.target.value; document.getElementById('opacity-val').innerText = Math.round(currentOpacity * 100); });
+
+        const pagesContainer = document.getElementById('pages-container');
+        
+        function getEventPos(e, rect) {
+            let clientX, clientY;
+            if(e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } 
+            else if(e.changedTouches && e.changedTouches.length > 0) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; } 
+            else { clientX = e.clientX; clientY = e.clientY; }
+            return { x: clientX - rect.left, y: clientY - rect.top, clientX, clientY };
+        }
+
+        function handleDrawStart(e) {
+            if(currentTool === 'cursor') return; 
+            if(e.type === 'touchstart') e.preventDefault(); 
+            
+            const wrapper = e.target.closest('.page-wrapper'); if(!wrapper) return;
+            activeDrawPageWrapper = pageWrappers[parseInt(wrapper.dataset.page) - 1];
+            const rect = wrapper.getBoundingClientRect(); 
+            const pos = getEventPos(e, rect);
+            
+            tempStartX = pos.x; tempStartY = pos.y;
+            isDrawing = true; highlightAxis = null; tempPath = [{x: tempStartX, y: tempStartY}];
+
+            if(currentTool === 'ocr') {
+                const ocrBox = document.createElement('div'); ocrBox.id = 'ocr-temp-box'; ocrBox.className = 'ocr-scanner-box';
+                ocrBox.style.left = tempStartX + 'px'; ocrBox.style.top = tempStartY + 'px';
+                activeDrawPageWrapper.wrapper.appendChild(ocrBox);
+            }
+        }
+
+        function handleDrawMove(e) {
+            if(!isDrawing || !activeDrawPageWrapper) return;
+            if(e.type === 'touchmove') e.preventDefault();
+
+            const rect = activeDrawPageWrapper.wrapper.getBoundingClientRect();
+            const pos = getEventPos(e, rect);
+            
+            if(currentTool === 'ocr') {
+                const box = document.getElementById('ocr-temp-box'); if(!box) return;
+                box.style.left = Math.min(pos.x, tempStartX) + 'px'; box.style.top = Math.min(pos.y, tempStartY) + 'px';
+                box.style.width = Math.abs(pos.x - tempStartX) + 'px'; box.style.height = Math.abs(pos.y - tempStartY) + 'px';
+                return;
+            }
+            
+            if(currentTool === 'pencil' || currentTool === 'eraser') {
+                tempPath.push({x: pos.x, y: pos.y}); 
+                const ctx = activeDrawPageWrapper.drawCanvas.getContext('2d');
+                const lastPos = tempPath[tempPath.length - 2];
+                
+                if (currentTool === 'eraser') { 
+                    ctx.globalCompositeOperation = 'destination-out'; 
+                    ctx.lineWidth = currentLineWidth * (currentRenderScale / 1.5) * 2; 
+                    ctx.strokeStyle = 'rgba(0,0,0,1)'; 
+                } else { 
+                    ctx.globalCompositeOperation = 'source-over'; 
+                    ctx.lineWidth = currentLineWidth * (currentRenderScale / 1.5); 
+                    ctx.strokeStyle = currentColor; 
+                    ctx.globalAlpha = currentOpacity; 
+                }
+                
+                ctx.beginPath(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; 
+                ctx.moveTo(lastPos.x, lastPos.y); ctx.lineTo(pos.x, pos.y); 
+                ctx.stroke(); 
+                
+                ctx.globalAlpha = 1.0; 
+                ctx.globalCompositeOperation = 'source-over'; 
+                return;
+            }
+            
+            const ctxTemp = activeDrawPageWrapper.tempCanvas.getContext('2d'); ctxTemp.clearRect(0, 0, ctxTemp.canvas.width, ctxTemp.canvas.height);
+            let endX = pos.x, endY = pos.y;
+            if (currentTool === 'highlighter') {
+                if (!highlightAxis && (Math.abs(pos.x - tempStartX) > 5 || Math.abs(pos.y - tempStartY) > 5)) highlightAxis = Math.abs(pos.x - tempStartX) > Math.abs(pos.y - tempStartY) ? 'x' : 'y';
+                endX = highlightAxis === 'y' ? tempStartX : pos.x; endY = highlightAxis === 'x' ? tempStartY : pos.y;
+            }
+            drawShape(ctxTemp, { tool: currentTool, color: currentColor, opacity: currentOpacity, width: currentLineWidth, scale: currentRenderScale, startX: tempStartX, startY: tempStartY, endX: endX, endY: endY, path: tempPath });
+        }
+
+        async function handleDrawEnd(e) {
+            if(!isDrawing || !activeDrawPageWrapper) return; isDrawing = false;
+            
+            if(currentTool === 'ocr') {
+                const box = document.getElementById('ocr-temp-box');
+                const rect = activeDrawPageWrapper.wrapper.getBoundingClientRect(); 
+                const pos = getEventPos(e, rect);
+                const endX = pos.x; const endY = pos.y;
+                const sX = Math.min(tempStartX, endX); const sY = Math.min(tempStartY, endY);
+                const w = Math.abs(endX - tempStartX); const h = Math.abs(endY - tempStartY);
+                if(box) box.remove();
+                
+                if(w > 20 && h > 20) {
+                    const tempC = document.createElement('canvas'); tempC.width = w; tempC.height = h; const tcCtx = tempC.getContext('2d');
+                    tcCtx.drawImage(activeDrawPageWrapper.canvas, sX, sY, w, h, 0, 0, w, h); 
+                    tcCtx.drawImage(activeDrawPageWrapper.drawCanvas, sX, sY, w, h, 0, 0, w, h); 
+                    const base64Img = tempC.toDataURL('image/jpeg').split(',')[1];
+                    
+                    const aiPopup = document.getElementById('ai-popup');
+                    aiPopup.style.display = 'block'; 
+                    if(window.innerWidth <= 768) {
+                        aiPopup.style.left = '50%'; aiPopup.style.top = '50%';
+                    } else {
+                        aiPopup.style.left = (pos.clientX + 10) + 'px'; aiPopup.style.top = (pos.clientY + 10) + 'px';
+                    }
+                    
+                    document.getElementById('selected-word-input').value = "";
+                    document.getElementById('popup-result').style.display = 'block';
+                    document.getElementById('popup-result').innerHTML = "<i>📸 កំពុងស្កេនអក្សរចេញពីរូបភាព... ⏳</i>";
+                    currentTargetPos = { x: sX + w/2, y: sY + h/2 }; activePopupPage = activeDrawPageWrapper.pageNum;
+
+                    try {
+                        const prompt = "Extract all text from this image perfectly. Only reply with the extracted text itself. Keep original language (Khmer or English).";
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${API_KEY}`, { 
+                            method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, {inlineData: { mimeType: "image/jpeg", data: base64Img }}] }] }) 
+                        });
+                        const data = await response.json();
+                        if (response.ok && data.candidates) {
+                            const extractedText = data.candidates[0].content.parts[0].text.trim();
+                            document.getElementById('selected-word-input').value = extractedText;
+                            document.getElementById('popup-result').innerHTML = "<span style='color:green;'>✔️ ស្កេនអក្សរបានជោគជ័យ!</span>";
+                        } else throw new Error(data.error ? data.error.message : 'Unknown API Error');
+                    } catch (error) { 
+                        console.error(error);
+                        document.getElementById('popup-result').innerHTML = "<span style='color:red;'>មិនមានអក្សរច្បាស់ ឬមានបញ្ហាភ្ជាប់ទៅកាន់ API របស់ Google ទេ!</span>"; 
+                    }
+                }
+                activeDrawPageWrapper = null; return;
+            }
+
+            const pNum = activeDrawPageWrapper.pageNum;
+            const normPath = tempPath.map(p => ({x: p.x / currentRenderScale, y: p.y / currentRenderScale}));
+            const rect = activeDrawPageWrapper.wrapper.getBoundingClientRect(); const pos = getEventPos(e, rect);
+            
+            const dObj = { page: pNum, tool: currentTool, color: currentColor, opacity: currentOpacity, width: currentLineWidth, scale: 1, startX: tempStartX / currentRenderScale, startY: tempStartY / currentRenderScale, endX: (currentTool === 'highlighter' && highlightAxis === 'y') ? tempStartX / currentRenderScale : pos.x / currentRenderScale, endY: (currentTool === 'highlighter' && highlightAxis === 'x') ? tempStartY / currentRenderScale : pos.y / currentRenderScale, path: normPath };
+            
+            drawings.push(dObj); saveHistory();
+            const ctxTemp = activeDrawPageWrapper.tempCanvas.getContext('2d'); ctxTemp.clearRect(0, 0, ctxTemp.canvas.width, ctxTemp.canvas.height);
+            renderDrawingsForPage(pNum); activeDrawPageWrapper = null;
+        }
+
+        pagesContainer.addEventListener('mousedown', handleDrawStart);
+        pagesContainer.addEventListener('touchstart', handleDrawStart, {passive: false});
+        pagesContainer.addEventListener('mousemove', handleDrawMove);
+        pagesContainer.addEventListener('touchmove', handleDrawMove, {passive: false});
+        pagesContainer.addEventListener('mouseup', handleDrawEnd);
+        pagesContainer.addEventListener('touchend', handleDrawEnd);
+
+        // ----------- មុខងារជំនួយការគូរ -----------
+        function drawShape(ctx, d) {
+            if (d.tool === 'eraser') { 
+                ctx.globalCompositeOperation = 'destination-out'; 
+                ctx.strokeStyle = 'rgba(0,0,0,1)'; 
+            } else { 
+                ctx.globalCompositeOperation = (d.tool === 'highlighter') ? 'multiply' : 'source-over'; 
+                ctx.strokeStyle = d.color || '#000000'; 
+                ctx.globalAlpha = d.opacity || 1.0; 
+            }
+            
+            const sRatio = currentRenderScale / (d.scale || 1.5);
+            ctx.lineWidth = d.width * sRatio * (d.tool === 'eraser' ? 2 : 1); 
+            ctx.beginPath(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            const sp = (val) => val * sRatio;
+            
+            if ((d.tool === 'pencil' || d.tool === 'eraser') && d.path && d.path.length > 0) { 
+                ctx.moveTo(sp(d.path[0].x), sp(d.path[0].y)); 
+                for(let i=1; i<d.path.length; i++) ctx.lineTo(sp(d.path[i].x), sp(d.path[i].y)); 
+                ctx.stroke(); 
+            }
+            else if (d.tool === 'highlighter' || d.tool === 'line') { ctx.moveTo(sp(d.startX), sp(d.startY)); ctx.lineTo(sp(d.endX), sp(d.endY)); ctx.stroke(); }
+            else if (d.tool === 'rect') { ctx.strokeRect(sp(d.startX), sp(d.startY), sp(d.endX - d.startX), sp(d.endY - d.startY)); }
+            else if (d.tool === 'circle') { let rX = Math.abs(sp(d.endX) - sp(d.startX))/2, rY = Math.abs(sp(d.endY) - sp(d.startY))/2; ctx.ellipse(Math.min(sp(d.startX), sp(d.endX))+rX, Math.min(sp(d.startY), sp(d.endY))+rY, rX, rY, 0, 0, 2*Math.PI); ctx.stroke(); }
+            
+            ctx.globalAlpha = 1.0; 
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function renderDrawingsForPage(pNum) {
+            const wp = pageWrappers[pNum - 1]; if(!wp || !wp.rendered) return;
+            const ctx = wp.drawCanvas.getContext('2d'); ctx.clearRect(0, 0, wp.drawCanvas.width, wp.drawCanvas.height);
+            drawings.forEach(d => { if(d.page === pNum) drawShape(ctx, d); });
+        }
+        function renderDrawingsForAll() { pageWrappers.forEach(wp => { if(wp.rendered) renderDrawingsForPage(wp.pageNum); }); }
+
+        function drawNoteOnScreen(noteObj, wp) {
+            const sRatio = currentRenderScale / (noteObj.scale || 1.5);
+            const noteDiv = document.createElement('div'); noteDiv.className = 'note-box';
+            if(noteObj.width) noteDiv.style.width = (noteObj.width * sRatio) + 'px'; 
+            if(noteObj.height) noteDiv.style.height = (noteObj.height * sRatio) + 'px';
+            noteDiv.style.left = (noteObj.x * sRatio) + 'px'; noteDiv.style.top = (noteObj.y * sRatio) + 'px'; 
+            noteDiv.style.backgroundColor = noteObj.bgColor; noteDiv.id = 'note-' + noteObj.id;
+
+            const header = document.createElement('div'); header.className = 'note-header';
+            
+            const colorPicker = document.createElement('input'); colorPicker.type = 'color'; colorPicker.className = 'note-color-picker'; colorPicker.value = noteObj.bgColor; colorPicker.title = "ពណ៌ផ្ទៃ (Background)";
+            colorPicker.onchange = (e) => { noteObj.bgColor = e.target.value; noteDiv.style.backgroundColor = noteObj.bgColor; document.getElementById('anchor-'+noteObj.id).style.backgroundColor = noteObj.bgColor; updateLines(wp.pageNum); markUnsaved(); };
+            
+            const textColorPicker = document.createElement('input'); textColorPicker.type = 'color'; textColorPicker.className = 'note-color-picker'; textColorPicker.value = noteObj.textColor || '#000000'; textColorPicker.title = "ពណ៌អក្សរ (Text)";
+            
+            const fontUp = document.createElement('button'), fontDown = document.createElement('button'), closeBtn = document.createElement('button');
+            fontUp.className = fontDown.className = closeBtn.className = 'note-btn';
+            fontUp.innerText = 'A+'; fontDown.innerText = 'A-'; closeBtn.innerText = 'X'; closeBtn.style.color = 'red';
+            
+            const leftC = document.createElement('div'), rightC = document.createElement('div'); leftC.className = rightC.className = 'note-controls';
+            leftC.append(colorPicker, textColorPicker); rightC.append(fontDown, fontUp, closeBtn); header.append(leftC, rightC);
+
+            const textarea = document.createElement('textarea'); textarea.className = 'note-content'; textarea.value = noteObj.text; textarea.placeholder = "សរសេរ...";
+            textarea.style.width = '100%'; textarea.style.height = '100%'; 
+            
+            noteObj.fontSize = noteObj.fontSize || 18; 
+            textarea.style.fontSize = (noteObj.fontSize * sRatio) + 'px';
+            textarea.style.color = noteObj.textColor || '#000000'; 
+            
+            textColorPicker.onchange = (e) => { noteObj.textColor = e.target.value; textarea.style.color = noteObj.textColor; markUnsaved(); };
+
+            fontUp.onclick = () => { noteObj.fontSize += 2; textarea.style.fontSize = (noteObj.fontSize * sRatio) + 'px'; markUnsaved(); };
+            fontDown.onclick = () => { if(noteObj.fontSize > 8) { noteObj.fontSize -= 2; textarea.style.fontSize = (noteObj.fontSize * sRatio) + 'px'; markUnsaved(); } };
+            
+            textarea.addEventListener('input', (e) => { noteObj.text = e.target.value; markUnsaved(); });
+            closeBtn.onclick = function() { wp.notesLayer.removeChild(noteDiv); if(document.getElementById('anchor-'+noteObj.id)) wp.notesLayer.removeChild(document.getElementById('anchor-'+noteObj.id)); notesData = notesData.filter(n => n.id !== noteObj.id); updateLines(wp.pageNum); markUnsaved(); };
+            noteDiv.append(header, textarea); wp.notesLayer.appendChild(noteDiv);
+
+            const anchorDot = document.createElement('div'); anchorDot.className = 'anchor-dot'; anchorDot.id = 'anchor-' + noteObj.id;
+            anchorDot.style.left = (noteObj.targetX * sRatio) + 'px'; anchorDot.style.top = (noteObj.targetY * sRatio) + 'px';
+            anchorDot.style.backgroundColor = noteObj.bgColor; wp.notesLayer.appendChild(anchorDot);
+            makeElementDraggable(noteDiv, header, noteObj, 'note', wp); makeElementDraggable(anchorDot, anchorDot, noteObj, 'anchor', wp);
+            
+            new ResizeObserver(() => { 
+                const currentSRatio = currentRenderScale / (noteObj.scale || 1.5);
+                noteObj.width = noteDiv.offsetWidth / currentSRatio; 
+                noteObj.height = noteDiv.offsetHeight / currentSRatio; 
+                markUnsaved(); 
+            }).observe(noteDiv);
+        }
+
+        function makeElementDraggable(elmnt, handle, noteObj, type, wp) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0; const sRatio = currentRenderScale / (noteObj.scale || 1.5);
+            handle.onmousedown = function(e) { if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return; e.preventDefault(); pos3 = e.clientX; pos4 = e.clientY; document.onmouseup = closeDragElement; document.onmousemove = elementDrag; };
+            handle.addEventListener('touchstart', function(e) { if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return; e.preventDefault(); pos3 = e.touches[0].clientX; pos4 = e.touches[0].clientY; document.addEventListener('touchend', closeDragElement); document.addEventListener('touchmove', elementDragTouch, {passive:false}); }, {passive:false});
+            
+            function elementDrag(e) { e.preventDefault(); pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY; pos3 = e.clientX; pos4 = e.clientY; elmnt.style.top = (elmnt.offsetTop - pos2) + "px"; elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+                if(type === 'note') { noteObj.x = elmnt.offsetLeft / sRatio; noteObj.y = elmnt.offsetTop / sRatio; } else { noteObj.targetX = elmnt.offsetLeft / sRatio; noteObj.targetY = elmnt.offsetTop / sRatio; } updateLines(wp.pageNum); markUnsaved(); }
+            
+            function elementDragTouch(e) { e.preventDefault(); pos1 = pos3 - e.touches[0].clientX; pos2 = pos4 - e.touches[0].clientY; pos3 = e.touches[0].clientX; pos4 = e.touches[0].clientY; elmnt.style.top = (elmnt.offsetTop - pos2) + "px"; elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+                if(type === 'note') { noteObj.x = elmnt.offsetLeft / sRatio; noteObj.y = elmnt.offsetTop / sRatio; } else { noteObj.targetX = elmnt.offsetLeft / sRatio; noteObj.targetY = elmnt.offsetTop / sRatio; } updateLines(wp.pageNum); markUnsaved(); }
+
+            function closeDragElement() { document.onmouseup = null; document.onmousemove = null; document.removeEventListener('touchend', closeDragElement); document.removeEventListener('touchmove', elementDragTouch); }
+        }
+
+        function updateLines(pNum) {
+            const wp = pageWrappers[pNum - 1]; if(!wp || !wp.rendered) return; wp.svgLayer.innerHTML = "";
+            notesData.forEach(note => { 
+                if(note.page === pNum) { 
+                    const sRatio = currentRenderScale / (note.scale || 1.5);
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); 
+                    line.setAttribute('x1', note.targetX * sRatio); line.setAttribute('y1', note.targetY * sRatio); line.setAttribute('x2', note.x * sRatio); line.setAttribute('y2', (note.y * sRatio) + 14); 
+                    line.setAttribute('stroke', note.bgColor); line.setAttribute('stroke-dasharray', '5,5'); line.setAttribute('stroke-width', '3'); wp.svgLayer.appendChild(line); 
+                } 
+            });
+        }
+        function renderNotesForPage(pNum) { const wp = pageWrappers[pNum - 1]; if(!wp || !wp.rendered) return; wp.notesLayer.innerHTML = ""; wp.svgLayer.innerHTML = ""; notesData.forEach(note => { if(note.page === pNum) drawNoteOnScreen(note, wp); }); updateLines(pNum); }
+
+        const aiPopup = document.getElementById('ai-popup'), popupDragHandle = document.getElementById('popup-drag-handle');
+        let p_pos1 = 0, p_pos2 = 0, p_pos3 = 0, p_pos4 = 0;
+        popupDragHandle.onmousedown = function(e) { e.preventDefault(); p_pos3 = e.clientX; p_pos4 = e.clientY; document.onmouseup = closePopupDrag; document.onmousemove = popupDrag; };
+        function popupDrag(e) { e.preventDefault(); p_pos1 = p_pos3 - e.clientX; p_pos2 = p_pos4 - e.clientY; p_pos3 = e.clientX; p_pos4 = e.clientY; aiPopup.style.top = (aiPopup.offsetTop - p_pos2) + "px"; aiPopup.style.left = (aiPopup.offsetLeft - p_pos1) + "px"; }
+        function closePopupDrag() { document.onmouseup = null; document.onmousemove = null; }
+
+        pagesContainer.addEventListener('mouseup', handleTextSelection);
+        pagesContainer.addEventListener('touchend', (e) => { setTimeout(() => handleTextSelection(e), 100); }); 
+
+        function handleTextSelection(e) {
+            if(currentTool !== 'cursor') return; const wrapper = e.target.closest('.text-layer')?.parentElement; if(!wrapper) return;
+            const selection = window.getSelection(); let text = selection.toString().trim();
+            
+            if (text.length > 0) {
+                document.getElementById('selected-word-input').value = text; document.getElementById('popup-result').style.display = 'none';
+                const rect = selection.getRangeAt(0).getBoundingClientRect(); const wrapperRect = wrapper.getBoundingClientRect();
+                currentTargetPos = { x: rect.left + (rect.width/2) - wrapperRect.left, y: rect.top + (rect.height/2) - wrapperRect.top };
+                activePopupPage = parseInt(wrapper.dataset.page);
+                
+                aiPopup.style.display = 'block'; 
+                if(window.innerWidth <= 768) {
+                    aiPopup.style.left = '50%'; aiPopup.style.top = '50%';
+                } else {
+                    let leftPos = (e.clientX || (e.changedTouches ? e.changedTouches[0].clientX : 0)) + 10;
+                    let topPos = (e.clientY || (e.changedTouches ? e.changedTouches[0].clientY : 0)) + 10;
+                    if (leftPos + 340 > window.innerWidth) leftPos = window.innerWidth - 350; 
+                    if (topPos + 220 > window.innerHeight) topPos = window.innerHeight - 230;
+                    aiPopup.style.left = leftPos + 'px'; aiPopup.style.top = topPos + 'px';
+                }
+            } else { aiPopup.style.display = 'none'; }
+        }
+
+        document.getElementById('add-note-btn').addEventListener('click', function() {
+            aiPopup.style.display = 'none'; const wp = pageWrappers[activePopupPage - 1]; if(!wp) return;
+            const noteObj = { id: Date.now(), page: activePopupPage, text: "", fontSize: 18, x: (currentTargetPos.x + 60) / currentRenderScale, y: (currentTargetPos.y - 20) / currentRenderScale, targetX: currentTargetPos.x / currentRenderScale, targetY: currentTargetPos.y / currentRenderScale, bgColor: '#fff9c4', textColor: '#000000', width: 170, height: 110, scale: 1 };
+            notesData.push(noteObj); drawNoteOnScreen(noteObj, wp); updateLines(activePopupPage); markUnsaved();
+        });
+
+        function formatMarkdownText(text) { return text.replace(/### (.*?)\n/g, '<strong style="color:#007bff; display:block; margin-top:5px;">$1</strong>').replace(/## (.*?)\n/g, '<strong style="color:#007bff; display:block; margin-top:5px;">$1</strong>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\* (.*?)\n/g, '• $1<br>').replace(/\n/g, '<br>'); }
+
+        document.getElementById('ask-ai-btn').addEventListener('click', async function() {
+            const text = document.getElementById('selected-word-input').value.trim(); 
+            const resDiv = document.getElementById('popup-result');
+            
+            const langSelect = document.getElementById('lang-select');
+            let targetLang = langSelect.options[langSelect.selectedIndex].text;
+            if (targetLang.includes(':')) { targetLang = targetLang.split(':')[1].trim(); }
+
+            if(!text) return; resDiv.style.display = 'block'; resDiv.innerHTML = "<i>កំពុងសួរ AI... ⏳</i>";
+            try {
+                const prompt = `Please explain the meaning and translate this text: "${text}". \n\nCRITICAL INSTRUCTION: Your ENTIRE response MUST be strictly in ${targetLang}. Do not use any Khmer words in your explanation unless ${targetLang} is Khmer.`;
+                
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+                const data = await response.json();
+                if (response.ok && data.candidates) resDiv.innerHTML = formatMarkdownText(data.candidates[0].content.parts[0].text);
+                else resDiv.innerHTML = `<span style='color:red;'>កំហុស៖ ${data.error ? data.error.message : 'Unknown Error'}</span>`;
+            } catch (error) { resDiv.innerHTML = "<span style='color:red;'>មិនអាចភ្ជាប់ទៅ AI បានទេ! សូមពិនិត្យ API Key ម្តងទៀត</span>"; }
+        });
+
+        document.getElementById('translate-btn').addEventListener('click', async function() {
+            const text = document.getElementById('selected-word-input').value.trim(); const lang = document.getElementById('lang-select').value; const resDiv = document.getElementById('popup-result');
+            if(!text) return; resDiv.style.display = 'block'; resDiv.innerHTML = "<i>កំពុងបកប្រែ... ⏳</i>";
+            try { 
+                const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${lang}&dt=t&q=${encodeURIComponent(text)}`); 
+                const data = await response.json(); resDiv.innerHTML = `<strong style="color:#007bff">${data[0].map(item => item[0]).join('')}</strong>`;
+            } catch (error) { resDiv.innerHTML = "<span style='color:red;'>បរាជ័យក្នុងការបកប្រែ!</span>"; }
+        });
+
+        document.getElementById('save-db-btn').addEventListener('click', () => {
+            if(!currentBookId) return; const tx = db.transaction(["pdfs"], "readwrite"); const store = tx.objectStore("pdfs");
+            store.get(currentBookId).onsuccess = (e) => { 
+                let record = e.target.result; record.lastPage = pageNum; record.drawings = drawings; record.notesData = notesData; store.put(record); 
+                alert("រក្សាទុកចូលបណ្ណាល័យដោយជោគជ័យ! 🎉"); 
+                hasUnsavedChanges = false; 
+            };
+        });
+        
+        const hexToRgb = (hex) => { let r = parseInt(hex.slice(1,3), 16)/255||0, g = parseInt(hex.slice(3,5), 16)/255||0, b = parseInt(hex.slice(5,7), 16)/255||0; return PDFLib.rgb(r, g, b); };
+
+        async function createNoteImageBase64(note) {
+            const canvas = document.createElement('canvas'); canvas.width = note.width * 2; canvas.height = note.height * 2; 
+            const ctx = canvas.getContext('2d'); ctx.scale(2, 2); 
+            ctx.fillStyle = note.bgColor || '#fff9c4'; ctx.fillRect(0, 0, note.width, note.height);
+            ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(0, 0, note.width, 28);
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.beginPath(); ctx.moveTo(0, 28); ctx.lineTo(note.width, 28); ctx.stroke();
+            
+            ctx.fillStyle = note.textColor || '#000000'; 
+            ctx.font = `${note.fontSize || 18}px 'Khmer OS Battambang', Arial, sans-serif`; ctx.textBaseline = 'top';
+            const lines = (note.text || '').split('\n'); let y = 35; const padding = 8; const maxWidth = note.width - (padding * 2); const lineHeight = (note.fontSize || 18) * 1.5;
+            for (let i = 0; i < lines.length; i++) {
+                const words = lines[i].split(' '); let line = '';
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' '; const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) { ctx.fillText(line, padding, y); line = words[n] + ' '; y += lineHeight; } else { line = testLine; }
+                } ctx.fillText(line, padding, y); y += lineHeight;
+            } return canvas.toDataURL('image/png');
+        }
+
+        // ----------- បច្ចេកទេស Export ថ្មី (រូបភាពថ្លា) ដើម្បីកុំឱ្យជ័រលុបចេញពណ៌ស -----------
+        document.getElementById('export-pdf-btn').addEventListener('click', async function() {
+            if (!pdfBytes) return; 
+            this.innerHTML = "កំពុង Export... ⏳";
+            try { 
+                const { PDFDocument } = PDFLib; 
+                const pdfDocSave = await PDFDocument.load(pdfBytes); 
+                const pages = pdfDocSave.getPages();
+                
+                // ១. ប្រមូលផ្តុំគំនូសតាមទំព័រនីមួយៗ
+                const drawingsByPage = {};
+                drawings.forEach(d => {
+                    if (!drawingsByPage[d.page]) drawingsByPage[d.page] = [];
+                    drawingsByPage[d.page].push(d);
+                });
+
+                // ២. បម្លែងគំនូសទៅជារូបភាពថ្លា (Transparent PNG Overlay)
+                for (let pNumStr in drawingsByPage) {
+                    const pNum = parseInt(pNumStr);
+                    const pdfPage = pages[pNum - 1];
+                    if (!pdfPage) continue;
+
+                    const pdfWidth = pdfPage.getSize().width;
+                    const pdfHeight = pdfPage.getSize().height;
+
+                    const exportScale = 2; // ដើម្បីឱ្យច្បាស់ពេល Zoom
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = pdfWidth * exportScale;
+                    tempCanvas.height = pdfHeight * exportScale;
+                    const ctx = tempCanvas.getContext('2d');
+
+                    drawingsByPage[pNum].forEach(d => {
+                        if (d.tool === 'eraser') { 
+                            ctx.globalCompositeOperation = 'destination-out'; 
+                            ctx.strokeStyle = 'rgba(0,0,0,1)'; 
+                        } else { 
+                            ctx.globalCompositeOperation = (d.tool === 'highlighter') ? 'multiply' : 'source-over'; 
+                            ctx.strokeStyle = d.color || '#000000'; 
+                            ctx.globalAlpha = d.opacity || 1.0; 
+                        }
+                        
+                        const sRatio = exportScale / (d.scale || 1.5);
+                        ctx.lineWidth = d.width * sRatio * (d.tool === 'eraser' ? 2 : 1); 
+                        ctx.beginPath(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                        const sp = (val) => val * sRatio;
+                        
+                        if ((d.tool === 'pencil' || d.tool === 'eraser') && d.path && d.path.length > 0) { 
+                            ctx.moveTo(sp(d.path[0].x), sp(d.path[0].y)); 
+                            for(let i=1; i<d.path.length; i++) ctx.lineTo(sp(d.path[i].x), sp(d.path[i].y)); 
+                            ctx.stroke(); 
+                        }
+                        else if (d.tool === 'highlighter' || d.tool === 'line') { ctx.moveTo(sp(d.startX), sp(d.startY)); ctx.lineTo(sp(d.endX), sp(d.endY)); ctx.stroke(); }
+                        else if (d.tool === 'rect') { ctx.strokeRect(sp(d.startX), sp(d.startY), sp(d.endX - d.startX), sp(d.endY - d.startY)); }
+                        else if (d.tool === 'circle') { let rX = Math.abs(sp(d.endX) - sp(d.startX))/2, rY = Math.abs(sp(d.endY) - sp(d.startY))/2; ctx.ellipse(Math.min(sp(d.startX), sp(d.endX))+rX, Math.min(sp(d.startY), sp(d.endY))+rY, rX, rY, 0, 0, 2*Math.PI); ctx.stroke(); }
+                        ctx.globalAlpha = 1.0; ctx.globalCompositeOperation = 'source-over';
+                    });
+
+                    const pngDataUrl = tempCanvas.toDataURL('image/png');
+                    const embeddedPng = await pdfDocSave.embedPng(pngDataUrl);
+                    
+                    // បិទគំនូសពីលើទំព័រ PDF (មិនបិទបាំងអក្សរដើម)
+                    pdfPage.drawImage(embeddedPng, {
+                        x: 0,
+                        y: 0,
+                        width: pdfWidth,
+                        height: pdfHeight
+                    });
+                }
+
+                // ៣. បន្ត Export ប្រអប់ Sticky Note ដដែល
+                for (let i = 0; i < notesData.length; i++) {
+                    const n = notesData[i]; const pdfPage = pages[n.page - 1]; if(!pdfPage) continue;
+                    const scale = n.scale || 1.5; const pdfHeight = pdfPage.getSize().height;
+                    const toPdfX = (x) => x / scale; const toPdfY = (y) => pdfHeight - (y / scale);
+                    
+                    pdfPage.drawLine({ start: { x: toPdfX(n.targetX), y: toPdfY(n.targetY) }, end: { x: toPdfX(n.x), y: toPdfY(n.y) }, thickness: 2, color: hexToRgb(n.bgColor || '#000000'), dashArray: [4, 4] });
+                    const noteImageBase64 = await createNoteImageBase64(n); const embeddedImage = await pdfDocSave.embedPng(noteImageBase64);
+                    pdfPage.drawImage(embeddedImage, { x: toPdfX(n.x), y: toPdfY(n.y) - (n.height/scale), width: n.width / scale, height: n.height / scale });
+                }
+
+                const pdfBytesNew = await pdfDocSave.save(); const blob = new Blob([pdfBytesNew], { type: "application/pdf" });
+                const link = document.createElement('a'); link.href = URL.createObjectURL(blob); 
+                let baseName = currentBookName.replace(/\.[^/.]+$/, ""); link.download = baseName + "_byocl.pdf"; link.click();
+            } catch (err) { alert("មានបញ្ហាក្នុងការ Export PDF! សូមព្យាយាមម្តងទៀត។"); console.error(err); } 
+            this.innerHTML = "📥 ទាញយកជា PDF (Export)";
+        });
+    </script>
+</body>
+</html>
